@@ -1,0 +1,59 @@
+Line 1:
+	Line segment 1:
+		Token 1: pwd
+	Line segment 2:
+		Token 1: mkdir
+		Token 2: test
+	Line segment 3:
+		Token 1: cd
+		Token 2: test
+Line 2:
+	Line segment 1:
+		Token 1: sfjlksagjlks
+	Line segment 2:
+		Token 1: ls
+	Line segment 3:
+		Token 1: pwd
+Line 3:
+	Line segment 1:
+		Token 1: cd
+		Token 2: ..
+	Line segment 2:
+		Token 1: cd
+		Token 2: test
+	Line segment 3:
+		Token 1: pwd
+Line 4:
+	Line segment 1:
+		Token 1: cp
+		Token 2: ../input.txt
+		Token 3: .
+	Line segment 2:
+		Token 1: ls
+	Line segment 3:
+		Token 1: cat
+		Token 2: input.txt
+Line 5:
+	Line segment 1:
+		Token 1: mv
+		Token 2: input.txt
+		Token 3: del.txt
+	Line segment 2:
+		Token 1: pwd
+	Line segment 3:
+		Token 1: ls
+Line 6:
+	Line segment 1:
+		Token 1: rm
+		Token 2: del.txt
+	Line segment 2:
+		Token 1: ls
+Line 7:
+	Line segment 1:
+		Token 1: cd
+		Token 2: ..
+	Line segment 2:
+		Token 1: pwd
+Line 8:
+	Line segment 1:
+		Token 1: ls
