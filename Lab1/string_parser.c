@@ -107,7 +107,6 @@ command_line str_filler (char* buf, const char* delim)
 	// step 5
 	while (token != NULL){
 		cmd.command_list[i] = malloc(strlen(token) + 1);
-		strcpy(cmd.command_list[i], token);
 		if (cmd.command_list[i] == NULL){
 			perror("Failed to allocate memory for token");
 			exit(EXIT_FAILURE);
