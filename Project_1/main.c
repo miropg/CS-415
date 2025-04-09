@@ -176,7 +176,7 @@ void file_mode(const char *filename){
         free_command_line(&l_tok_buf);
     }
     free(line_buf);
-    close(in_fd);
+    fclose(in_fd);
 }
 
 void interactive_mode(void){
