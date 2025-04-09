@@ -58,7 +58,7 @@ int main(int argc, char const *argv[])
 	int line_num = 0; //keep track of line number we are on in the file
 
 	//loop until the file is over, line by line
-	while (getline(&line_buf, &len, inFPtr) != -1) // *** fgets ??
+	while (getline(&line_buf, &len, inFPtr) != -1) 
 	{
 		printf ("Line %d:\n", ++line_num); //print current line number
 
