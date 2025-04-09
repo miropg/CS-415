@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <fcntl.h>   // Defines O_WRONLY, O_CREAT, O_TRUNC
+#include <unistd.h>  // Defines dup2, STDOUT_FILENO, write, close
 #include "string_parser.h"
 #include "command.h"
 #include "error.h"
@@ -41,7 +43,7 @@ void execute_command(command_line s_tok_buf){
             if (param_count_valid("cd", s_tok_buf.num_token))
                 changeDir(s_tok_buf.command_list[1]);
             else
-                rr_params("cd");
+                err_params("cd");
         } else if (strcmp(s_tok_buf.command_list[0], "cp") == 0) {
             if (param_count_valid("cp", s_tok_buf.num_token))
                 copyFile(s_tok_buf.command_list[1], s_tok_buf.command_list[2]);
@@ -113,9 +115,9 @@ char* allocate_buffer_w_files(size_t size, FILE *inFPtr, FILE *outFPtr) {
 void file_mode(const char *filename){
     
     FILE *in_fd = fopen(filename, "r");
-    if (in_fd == -1) {
+    if (!in_fd) {
         const char *err = "failier opening input file\n";
-        write(2, err, strlen(err));
+        write(2, err, strlen(err)); //does this need write?
         return;
     }
 
