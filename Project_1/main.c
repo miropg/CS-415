@@ -140,6 +140,13 @@ void file_mode(const char *filename){
         close(out_fd);
         return;
     }
+    if (dup2(out_fd, STDERR_FILENO) == -1) {
+        const char *err = "Error redirecting stderr\n";
+        write(2, err, strlen(err));
+        fclose(in_fd);
+        close(out_fd);
+        return;
+    }
     //now we close out_fd becayse stdout now points to output.txt
     close(out_fd);
     // Allocate a buffer for reading lines
