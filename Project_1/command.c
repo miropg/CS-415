@@ -105,10 +105,14 @@ void copyFile(char *sourcePath, char *destinationPath){ /*for the cp command*/
     */
    const char *msg = "DEBUG: Executing cp command\n";
     write(1, msg, strlen(msg));
+    //check if destination path
+    //open file with source path
+    //otherwerise copy contents of destination file to source path
 }
 void moveFile(char *sourcePath, char *destinationPath){ /*for the mv command*/
     const char *msg = "DEBUG: Executing mv command\n";
     write(1, msg, strlen(msg));
+    // copy and delete basically
 }
 void deleteFile(char *filename){ /*for the rm command*/
     const char *msg = "DEBUG: Executing rm command\n";

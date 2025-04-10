@@ -120,7 +120,7 @@ void file_mode(const char *filename){
         write(2, err, strlen(err)); //does this need write?
         return;
     }
-
+    
     int out_fd = open("output.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (out_fd == -1) {
         const char *err = "failier opening output file\n";

@@ -3,14 +3,27 @@
 #include <string.h>
 #include "error.h"
 
+/*
+(File descriptor (where to write data), ptr to buf, num bytes to write);
+FD	            Meaning
+0	    stdin (standard input)
+1	    stdout (standard output) writes in the file
+2	    stderr (standard error)
+*/
 //error for an unrecognized command
 void err_unrecognized(const char *cmd){
-    fprintf(stderr, "Error! Unrecognized command: \"%s\"\n", cmd);
+    write(1, "Error! Unrecognized command: ", strlen("Error! Unrecognized command: "));
+    write(1, cmd, strlen(cmd));
+    write(1, "\n", 1);
+    //fprintf(stderr, "Error! Unrecognized command: %s\n", cmd);
 }
 
 //error for incorrect parameter count
 void err_params(const char *cmd){
-    fprintf(stderr, "Error! Unsupported parameters for command: \"%s\"\n", cmd);
+    write(1, "Error! Unsupported parameters for command: ", strlen("Error! Unsupported parameters for command: "));
+    write(1, cmd, strlen(cmd));
+    write(1, "\n", 1);
+    //fprintf(stderr, "Error! Unsupported parameters for command: %s\n", cmd);
 }
 
 //checks if the command is one of the known commands
