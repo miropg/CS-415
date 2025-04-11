@@ -98,7 +98,8 @@ command_line str_filler (char* buf, const char* delim)
 	// step 3
 	cmd.command_list = malloc(sizeof(char*) * (num_tokens + 1));
 	if (cmd.command_list == NULL){
-		perror("failed to allocate memory for command_list");
+		const char *err1 = "failed to allocate memory for command_list\n";
+		write(2, err1, strlen(err1));
 		exit(EXIT_FAILURE);
 	}
 	// step 4
@@ -108,7 +109,8 @@ command_line str_filler (char* buf, const char* delim)
 	while (token != NULL){
 		cmd.command_list[i] = malloc(strlen(token) + 1);
 		if (cmd.command_list[i] == NULL){
-			perror("Failed to allocate memory for token");
+			const char *err = "failed to allocate memory for token\n";
+			write(2, err, strlen(err));
 			exit(EXIT_FAILURE);
 		}
 		strcpy(cmd.command_list[i], token); //copy token into the allocated space
