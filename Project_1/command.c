@@ -11,6 +11,7 @@
 #include "command.h"
 
 #define _GNU_SOURCE
+#define MAX_PATH_LEN 1024
 /*
 * Description: Project 1 C file.
 * Author: Miro Garcia
@@ -52,9 +53,15 @@ void listDir(){ /*for the ls command*/
 }
 
 void showCurrentDir(){ /*for the pwd command*/
-    char cwd[1024];
+    //cwd = current working directory
+    char *cwd = malloc(sizeof(char) * MAX_PATH_LEN);
+    if (cwd == NULL) {
+        const char *err = "Memory allocation failed for current directory.\n";
+        write(2, err, strlen(err));
+        return;
+    }
     //getcwd: get current working directory
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+    if (getcwd(cwd, MAX_PATH_LEN) != NULL) {
         //write the full path to std output
         write(1, cwd, strlen(cwd));
         //write new line after the path
@@ -64,7 +71,7 @@ void showCurrentDir(){ /*for the pwd command*/
         const char *err = "Failed to get current directory.\n";
         write(2, err, strlen(err));
     }
-
+    free(cwd);
     // const char *msg = "DEBUG: Executing pwd command\n";
     // write(1, msg, strlen(msg));
 }
@@ -117,7 +124,14 @@ void copyFile(char *sourcePath, char *destinationPath){ /*for the cp command*/
     }
     //if it's a directory, append the filename to the path
     //allocate buffer to build the full destination path
-    char finalDest[1024];
+    //previously: char finalDest[1024];
+    char *finalDest = malloc(sizeof(char) * MAX_PATH_LEN);
+    if (!finalDest) {
+        const char *err = "Memory allocation failed for destination path.\n";
+        write(2, err, strlen(err));
+        close(srcFD);
+        return;
+    }
     if (isDir) {
     //strchr: returns ptr to 1st occurrence of the char c in string s
     // if / is found, we just want file name, so we take one chart past it
@@ -134,9 +148,9 @@ void copyFile(char *sourcePath, char *destinationPath){ /*for the cp command*/
     // so we want to use dest path as-is, & safely cpy it to finaldest
     //strncpy(ptr to destination buffer, ptr to source str, max char to copy)
         // -1 for the nullptr
-        strncpy(finalDest, destinationPath, sizeof(finalDest) - 1);
+        strncpy(finalDest, destinationPath, MAX_PATH_LEN - 1);
         // after copying manually add null ptr
-        finalDest[sizeof(finalDest) - 1] = '\0';
+        finalDest[MAX_PATH_LEN - 1] = '\0';
     }
     // open dest file for writing
     //O_WRONLY  = open file for writing
@@ -150,11 +164,18 @@ void copyFile(char *sourcePath, char *destinationPath){ /*for the cp command*/
         close(srcFD);
         return;
     }
-    char buffer[1024];
+    // previously: char buffer[1024];
+    char *buffer = malloc(sizeof(char) * MAX_PATH_LEN);
+    if (!finalDest) {
+        const char *err = "Memory allocation failed for destination path.\n";
+        write(2, err, strlen(err));
+        close(srcFD);
+        return;
+    }
     //ssize_t: signed size type, the type that read and write return
     ssize_t bytesRead, bytesWritten;
     // while there are still bytes being read from the source file into buf
-    while ((bytesRead = read(srcFD, buffer, sizeof(buffer))) > 0) {
+    while ((bytesRead = read(srcFD, buffer, MAX_PATH_LEN)) > 0) {
         //read and write return how many bytes were read/written
         //so they can be assigned to 
         bytesWritten = write(destFD, buffer, bytesRead);
@@ -167,6 +188,8 @@ void copyFile(char *sourcePath, char *destinationPath){ /*for the cp command*/
     }
     close(srcFD);
     close(destFD);
+    free(buffer);
+    free(finalDest);
     // const char *msg = "DEBUG: Executing cp command\n";
     // write(1, msg, strlen(msg));
 }
@@ -191,6 +214,7 @@ void deleteFile(char *filename){ /*for the rm command*/
     // const char *msg = "DEBUG: Executing rm command\n";
     // write(1, msg, strlen(msg));
 }
+
 void displayFile(char *filename){ /*for the cat command*/
     FILE *in_fd = fopen(filename, "r");
     if (!in_fd) {
