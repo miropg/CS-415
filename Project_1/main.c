@@ -213,7 +213,7 @@ void interactive_mode(void){
 
     // Interactive Loop
     while (1) {
-        write(1, ">>> ", 4);
+        write(1, ">>> \n", 4);
         // printf(">>> "); //display prompt that shows up for user
 
     //'line_buf' is a pointer to a buffer (which getline() may allocate/reallocate).
