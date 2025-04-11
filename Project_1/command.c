@@ -27,38 +27,71 @@ FD	            Meaning
 1	    stdout (standard output)
 2	    stderr (standard error)
 */
-void listDir(){ // for the ls command
-    
-    // opens currend directory, because "." refers to current directory
+int compare(const void *a, const void *b) {
+    char * const *pa = a;
+    char * const *pb = b;
+    return strcmp(*pa, *pb);
+}
+
+void listDir() {
     DIR *dir = opendir(".");
     if (!dir) {
         const char *err = "Failed to open directory.\n";
-        //prints to standard error
         write(2, err, strlen(err));
         return;
     }
+
     struct dirent *entry;
+    char **entries = NULL;
+    int count = 0;
+    size_t capacity = 10;
+
+    entries = malloc(capacity * sizeof(char *));
+    if (!entries) {
+        const char *err = "Memory allocation failed.\n";
+        write(2, err, strlen(err));
+        closedir(dir);
+        return;
+    }
+
     while ((entry = readdir(dir)) != NULL) {
-        // if (strcmp(entry->d_name, ".")  == 0 || strcmp(entry->d_name, "..") == 0){
-        //     continue;
-        // }
-        size_t nameLen = strlen(entry->d_name);
-        char *nameCopy = malloc(nameLen + 2); // +1 for space, +1 for '\0'
-        if (!nameCopy) {
+        if (count >= capacity) {
+            capacity *= 2;
+            char **temp = realloc(entries, capacity * sizeof(char *));
+            if (!temp) {
+                const char *err = "Reallocation failed.\n";
+                write(2, err, strlen(err));
+                closedir(dir);
+                for (int i = 0; i < count; ++i) free(entries[i]);
+                free(entries);
+                return;
+            }
+            entries = temp;
+        }
+
+        entries[count] = malloc(strlen(entry->d_name) + 1);
+        if (!entries[count]) {
             const char *err = "Memory allocation failed.\n";
             write(2, err, strlen(err));
             closedir(dir);
+            for (int i = 0; i < count; ++i) free(entries[i]);
+            free(entries);
             return;
         }
-        strcpy(nameCopy, entry->d_name);
-        strcat(nameCopy, " ");
-        write(1, nameCopy, strlen(nameCopy));
-        free(nameCopy);
+        strcpy(entries[count], entry->d_name);
+        count++;
     }
-    write(1, "\n", 1);
+
     closedir(dir);
-    // const char *msg = "DEBUG: Executing ls command\n";
-    // write(1, msg, strlen(msg));
+
+    qsort(entries, count, sizeof(char *), compare);
+
+    for (int i = 0; i < count; ++i) {
+        write(1, entries[i], strlen(entries[i]));
+        write(1, "\n", 1);
+        free(entries[i]);
+    }
+    free(entries);
 }
 
 void showCurrentDir(){ /*for the pwd command*/
@@ -320,6 +353,41 @@ void listDir(){ //for the ls command
         free(entries[i]);
     }
     free(entries);
+    // const char *msg = "DEBUG: Executing ls command\n";
+    // write(1, msg, strlen(msg));
+}
+*/
+/*
+void listDir(){ // for the ls command
+    
+    // opens currend directory, because "." refers to current directory
+    DIR *dir = opendir(".");
+    if (!dir) {
+        const char *err = "Failed to open directory.\n";
+        //prints to standard error
+        write(2, err, strlen(err));
+        return;
+    }
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        // if (strcmp(entry->d_name, ".")  == 0 || strcmp(entry->d_name, "..") == 0){
+        //     continue;
+        // }
+        size_t nameLen = strlen(entry->d_name);
+        char *nameCopy = malloc(nameLen + 2); // +1 for space, +1 for '\0'
+        if (!nameCopy) {
+            const char *err = "Memory allocation failed.\n";
+            write(2, err, strlen(err));
+            closedir(dir);
+            return;
+        }
+        strcpy(nameCopy, entry->d_name);
+        strcat(nameCopy, " ");
+        write(1, nameCopy, strlen(nameCopy));
+        free(nameCopy);
+    }
+    write(1, "\n", 1);
+    closedir(dir);
     // const char *msg = "DEBUG: Executing ls command\n";
     // write(1, msg, strlen(msg));
 }
