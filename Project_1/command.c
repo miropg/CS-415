@@ -27,7 +27,7 @@ FD	            Meaning
 1	    stdout (standard output)
 2	    stderr (standard error)
 */
-void listDir(){ /*for the ls command*/
+void listDir(){ // for the ls command
     
     // opens currend directory, because "." refers to current directory
     DIR *dir = opendir(".");
@@ -37,74 +37,26 @@ void listDir(){ /*for the ls command*/
         write(2, err, strlen(err));
         return;
     }
-    int capacity = 10;
-    int count = 0;
-    char **entries = malloc(sizeof(char*) * capacity);
-    if (!entries) {
-        const char *err = "Memory allocation failed.\n";
-        write(2, err, strlen(err));
-        closedir(dir);
-        return;
-    }
-
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
-        if (count >= capacity) {
-            capacity *= 2;
-            char **temp = realloc(entries, sizeof(char*) * capacity);
-            if (!temp) {
-                const char *err = "Memory reallocation failed.\n";
-                write(2, err, strlen(err));
-                for (int i = 0; i < count; i++) {
-                    free(entries[i]);
-                }
-                free(entries);
-                closedir(dir);
-                return;
-            }
-            entries = temp;
-        }
-        entries[count] = malloc(strlen(entry->d_name) + 1);
-        if (!entries[count]) {
-            const char *err = "Memory allocatuon failed for entry.\n";
+        // if (strcmp(entry->d_name, ".")  == 0 || strcmp(entry->d_name, "..") == 0){
+        //     continue;
+        // }
+        size_t nameLen = strlen(entry->d_name);
+        char *nameCopy = malloc(nameLen + 2); // +1 for space, +1 for '\0'
+        if (!nameCopy) {
+            const char *err = "Memory allocation failed.\n";
             write(2, err, strlen(err));
-            for (int i = 0; i < count; i++) {
-                free(entries[i]);
-            }
-            free(entries);
             closedir(dir);
             return;
         }
-        strcpy(entries[count], entry->d_name);
-        count++;
+        strcpy(nameCopy, entry->d_name);
+        strcat(nameCopy, " ");
+        write(1, nameCopy, strlen(nameCopy));
+        free(nameCopy);
     }
-    closedir(dir);
-
-    // Sort alphabetically using simple bubble sort (or qsort if you prefer)
-    for (int i = 0; i < count - 1; i++) {
-        for (int j = i + 1; j < count; j++) {
-            if (strcmp(entries[i], entries[j]) > 0) {
-                char *temp = entries[i];
-                entries[i] = entries[j];
-                entries[j] = temp;
-            }
-        }
-    }
-
-    // Print out the sorted entries with space in between
-    for (int i = 0; i < count; i++) {
-        write(1, entries[i], strlen(entries[i]));
-        if (i != count - 1) {
-            write(1, " ", 1);
-        }
-    }
-
     write(1, "\n", 1);
-
-    for (int i = 0; i < count; i++) {
-        free(entries[i]);
-    }
-    free(entries);
+    closedir(dir);
     // const char *msg = "DEBUG: Executing ls command\n";
     // write(1, msg, strlen(msg));
 }
@@ -289,8 +241,8 @@ void displayFile(char *filename){ /*for the cat command*/
     // const char *msg = "DEBUG: Executing cat command\n";
     // write(1, msg, strlen(msg));
 }
-/* OLD LS
-void listDir(){ for the ls command
+/*
+void listDir(){ //for the ls command
     
     // opens currend directory, because "." refers to current directory
     DIR *dir = opendir(".");
@@ -300,17 +252,74 @@ void listDir(){ for the ls command
         write(2, err, strlen(err));
         return;
     }
+    int capacity = 10;
+    int count = 0;
+    char **entries = malloc(sizeof(char*) * capacity);
+    if (!entries) {
+        const char *err = "Memory allocation failed.\n";
+        write(2, err, strlen(err));
+        closedir(dir);
+        return;
+    }
+
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
-        // if (strcmp(entry->d_name, ".")  == 0 || strcmp(entry->d_name, "..") == 0){
-        //     continue;
-        // }
-        //both prints to std output 
-        write(1, entry->d_name, strlen(entry->d_name));
-        write(1, " ", 1);
+        if (count >= capacity) {
+            capacity *= 2;
+            char **temp = realloc(entries, sizeof(char*) * capacity);
+            if (!temp) {
+                const char *err = "Memory reallocation failed.\n";
+                write(2, err, strlen(err));
+                for (int i = 0; i < count; i++) {
+                    free(entries[i]);
+                }
+                free(entries);
+                closedir(dir);
+                return;
+            }
+            entries = temp;
+        }
+        entries[count] = malloc(strlen(entry->d_name) + 1);
+        if (!entries[count]) {
+            const char *err = "Memory allocatuon failed for entry.\n";
+            write(2, err, strlen(err));
+            for (int i = 0; i < count; i++) {
+                free(entries[i]);
+            }
+            free(entries);
+            closedir(dir);
+            return;
+        }
+        strcpy(entries[count], entry->d_name);
+        count++;
     }
-    write(1, "\n", 1);
     closedir(dir);
+
+    // Sort alphabetically using simple bubble sort (or qsort if you prefer)
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = i + 1; j < count; j++) {
+            if (strcmp(entries[i], entries[j]) > 0) {
+                char *temp = entries[i];
+                entries[i] = entries[j];
+                entries[j] = temp;
+            }
+        }
+    }
+
+    // Print out the sorted entries with space in between
+    for (int i = 0; i < count; i++) {
+        write(1, entries[i], strlen(entries[i]));
+        if (i != count - 1) {
+            write(1, " ", 1);
+        }
+    }
+
+    write(1, "\n", 1);
+
+    for (int i = 0; i < count; i++) {
+        free(entries[i]);
+    }
+    free(entries);
     // const char *msg = "DEBUG: Executing ls command\n";
     // write(1, msg, strlen(msg));
 }
