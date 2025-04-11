@@ -140,6 +140,7 @@ void file_mode(const char *filename){
         close(out_fd);
         return;
     }
+    //so that errors print out to file as well
     if (dup2(out_fd, STDERR_FILENO) == -1) {
         const char *err = "Error redirecting stderr\n";
         write(2, err, strlen(err));
