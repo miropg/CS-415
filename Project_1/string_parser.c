@@ -10,7 +10,7 @@
  #include <stdlib.h>
  #include <string.h>
  #include "string_parser.h"
- 
+ #include <unistd.h>
  #define _GUN_SOURCE
  //char* buf: ptr to str you want to break into tokens
  //const char* delim: a C str conatining the characters that act as separators (delimiters)
