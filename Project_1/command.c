@@ -39,15 +39,15 @@ void listDir(){ /*for the ls command*/
     }
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".")  == 0 || strcmp(entry->d_name, "..") == 0){
-            continue;
-        }
+        // if (strcmp(entry->d_name, ".")  == 0 || strcmp(entry->d_name, "..") == 0){
+        //     continue;
+        // }
         //both prints to std output 
         write(1, entry->d_name, strlen(entry->d_name));
-        write(1, "\n", 1);
+        write(1, " ", 1);
     }
+    write(1, "\n", 1);
     closedir(dir);
-    
     // const char *msg = "DEBUG: Executing ls command\n";
     // write(1, msg, strlen(msg));
 }
