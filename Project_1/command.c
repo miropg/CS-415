@@ -119,12 +119,15 @@ void showCurrentDir(){ /*for the pwd command*/
 }
 
 void makeDir(char *dirName){ /*for the mkdir command*/
-
     if (mkdir(dirName, 0755) == -1) {
-        const char *err = "Failed to create directory.\n";
-        write(2, err, strlen(err));
-    }
-        
+        if (errno == EEXIST) {
+            const char *msg = "Directory already exists!\n";
+            write(1, msg, strlen(msg));
+        } else {
+            const char *err = "Failed to create directory.\n";
+            write(2, err, strlen(err));
+        }
+    }      
 //  const char *msg = "DEBUG: Executing mkdir command\n";
 //  write(1, msg, strlen(msg));
 }
@@ -258,19 +261,25 @@ void deleteFile(char *filename){ /*for the rm command*/
 }
 
 void displayFile(char *filename){ /*for the cat command*/
-    FILE *in_fd = fopen(filename, "r");
-    if (!in_fd) {
+    int fd = fopen(filename, O_RDONLY);
+    if (fd == -1) {
         const char *err = "failier opening input file\n";
         write(2, err, strlen(err)); //does this need write?
         return;
     }
-    size_t len = 0;
-    char *line_buf = NULL;
-    while (getline(&line_buf, &len, in_fd) != -1){
-        write(1, line_buf, strlen(line_buf));
+    char *buffer = malloc(MAX_PATH_LEN);
+    if (!buffer) {
+        const char *err = "memory allocation failed\n";
+        write(2, err, strlen(err));
+        close(fd);
+        return;
     }
-    free(line_buf);
-    fclose(in_fd);
+    ssize_t bytesRead;
+    while ((bytesRead = read(fd, buffer, MAX_PATH_LEN)) > 0) {
+        write(1, buffer, bytesRead);
+    }
+    free(buffer);
+    close(fd);
     // const char *msg = "DEBUG: Executing cat command\n";
     // write(1, msg, strlen(msg));
 }
