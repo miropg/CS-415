@@ -261,7 +261,7 @@ void deleteFile(char *filename){ /*for the rm command*/
 }
 
 void displayFile(char *filename){ /*for the cat command*/
-    int fd = fopen(filename, O_RDONLY);
+    int fd = open(filename, O_RDONLY);
     if (fd == -1) {
         const char *err = "failier opening input file\n";
         write(2, err, strlen(err)); //does this need write?
