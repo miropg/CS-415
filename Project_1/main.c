@@ -170,8 +170,8 @@ void file_mode(const char *filename){
     while (getline(&line_buf, &len, in_fd) != -1) {
         if (strncmp(line_buf, "exit", 4) == 0)
             break; //exit psudo-shell if exit typed
-
-        write(1, line_buf, strlen(line_buf));
+        //prints command line (e.g., pwd ; mkdir test ; cd test) into output.txt.
+        //write(1, line_buf, strlen(line_buf)); //for ex.output.txt
         trim(line_buf); //trim any white space away
 
     // parse the input line: fir
