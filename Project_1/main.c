@@ -168,11 +168,12 @@ void file_mode(const char *filename){
     //getline reads a line from batch file, stores the line in a buffer
     //pointed to by line_buf and updates len w/ current allocated size of buffer
     while (getline(&line_buf, &len, in_fd) != -1) {
-        trim(line_buf); //trim any white space away
         if (strncmp(line_buf, "exit", 4) == 0)
             break; //exit psudo-shell if exit typed
 
         write(1, line_buf, strlen(line_buf));
+        trim(line_buf); //trim any white space away
+
     // parse the input line: fir
         l_tok_buf = str_filler(line_buf, ";");
         for (int i = 0; l_tok_buf.command_list[i] != NULL; i++){
