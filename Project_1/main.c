@@ -172,6 +172,8 @@ void file_mode(const char *filename){
         if (strncmp(line_buf, "exit", 4) == 0)
             break; //exit psudo-shell if exit typed
 
+        write(1, line_buf, strlen(line_buf));
+        write(1, "\n", 1); //fixing ls/home... bug
     // parse the input line: fir
         l_tok_buf = str_filler(line_buf, ";");
         for (int i = 0; l_tok_buf.command_list[i] != NULL; i++){
