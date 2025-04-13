@@ -1,7 +1,7 @@
 all : lab2
 
 lab2: main.o string_parser.o command.o error.o
-	gcc -g -o pseudo-shell main.o string_parser.o command.o error.o
+	gcc -g -o lab2 main.o string_parser.o command.o error.o
 
 main.o: main.c
 	gcc -g -c main.c
@@ -16,4 +16,4 @@ error.o: error.c error.h
 	gcc -g -c error.c
 
 clean:
-	rm -f pseudo-shell *.o
+	rm -f lab2 *.o
