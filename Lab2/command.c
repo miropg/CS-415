@@ -83,7 +83,7 @@ files (e.g. ".", "..", "main.c", "lab2.exe", "output.txt" */
     //sets up ptr entry to store info about each file or directory
     //that we find in the current folder
     struct dirent *entry;
-    while (entry = readdir(dir) != NULL){
+    while ((entry = readdir(dir)) != NULL){
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0){
             continue;
         } 

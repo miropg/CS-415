@@ -25,7 +25,7 @@ void execute_command(command_line s_tok_buf){
             else
                 err_params("lfcat");
         } else {
-            err_urecognized(s_tok_buf.command_list[0]);
+            err_unrecognized(s_tok_buf.command_list[0]);
         }
     }
     free_command_line(&s_tok_buf);
@@ -218,7 +218,7 @@ int main(int argc, char const *argv[]){
     freopen("output.txt", "w", stdout);
     // start interactive mode immediately 
     if (argc == 1) {
-        interactice_mode();
+        interactive_mode();
     }
     return 0;
 }
