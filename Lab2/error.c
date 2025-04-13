@@ -44,7 +44,8 @@ int valid_command(const char *cmd){
 //boolean functions, will return True if the specific command the user entered has
 // correct number of parameters
 int param_count_valid(const char *cmd, int arg_count){
-    if (strcmp(cmd, "ls") == 0 || strcmp(cmd, "pwd") == 0) {
+    if (strcmp(cmd, "ls") == 0 || strcmp(cmd, "pwd") == 0  
+                                || strcmp(cmd, "lfcat")) {
         return arg_count == 1; // this is just command, no parameters
     } else if (strcmp(cmd, "cd") == 0 || strcmp(cmd, "mkdir") == 0 ||
             strcmp(cmd, "rm") == 0 || strcmp(cmd, "cat") == 0) {

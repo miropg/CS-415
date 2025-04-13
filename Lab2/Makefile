@@ -1,6 +1,6 @@
-all : pseudo-shell
+all : lab2
 
-pseudo-shell: main.o string_parser.o command.o error.o
+lab2: main.o string_parser.o command.o error.o
 	gcc -g -o pseudo-shell main.o string_parser.o command.o error.o
 
 main.o: main.c

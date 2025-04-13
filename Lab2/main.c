@@ -17,53 +17,15 @@
 // write instead of fprintf
 
 void execute_command(command_line s_tok_buf){
-    if(s_tok_buf.command_list[0] != NULL) {
+    if (s_tok_buf.command_list[0] != NULL) {
         // double check user wrote valid command before checking which command it is
-        if (!valid_command(s_tok_buf.command_list[0])) {
-            err_unrecognized(s_tok_buf.command_list[0]);
-            free_command_line(&s_tok_buf);
-            return;
-        } 
-        if (strcmp(s_tok_buf.command_list[0], "ls") == 0) {
-            if (param_count_valid("ls", s_tok_buf.num_token))
-                listDir();
+        if (strcmp(s_tok_buf.command_list[0], "lfcat") == 0) {
+            if (param_count_valid("lfcat", s_tok_buf.num_token))
+                lfcat();
             else
-                err_params("ls");
-        } else if (strcmp(s_tok_buf.command_list[0], "pwd") == 0) {
-            if (param_count_valid("pwd", s_tok_buf.num_token))
-                showCurrentDir();
-            else
-                err_params("pwd");
-        } else if (strcmp(s_tok_buf.command_list[0], "mkdir") == 0) {
-            if (param_count_valid("mkdir", s_tok_buf.num_token))
-                makeDir(s_tok_buf.command_list[1]);
-            else
-                err_params("mkdir");
-        } else if (strcmp(s_tok_buf.command_list[0], "cd") == 0) {
-            if (param_count_valid("cd", s_tok_buf.num_token))
-                changeDir(s_tok_buf.command_list[1]);
-            else
-                err_params("cd");
-        } else if (strcmp(s_tok_buf.command_list[0], "cp") == 0) {
-            if (param_count_valid("cp", s_tok_buf.num_token))
-                copyFile(s_tok_buf.command_list[1], s_tok_buf.command_list[2]);
-            else
-                err_params("cp");
-        } else if (strcmp(s_tok_buf.command_list[0], "mv") == 0) {
-            if (param_count_valid("mv", s_tok_buf.num_token))
-                moveFile(s_tok_buf.command_list[1], s_tok_buf.command_list[2]);
-            else
-                err_params("mv");
-        } else if (strcmp(s_tok_buf.command_list[0], "rm") == 0) {
-            if (param_count_valid("rm", s_tok_buf.num_token))
-                deleteFile(s_tok_buf.command_list[1]);
-            else
-                err_params("rm");
-        } else if (strcmp(s_tok_buf.command_list[0], "cat") == 0) {
-            if (param_count_valid("cat", s_tok_buf.num_token))
-                displayFile(s_tok_buf.command_list[1]);
-            else
-                err_params("cat");
+                err_params("lfcat");
+        } else {
+            err_urecognized(s_tok_buf.command_list[0]);
         }
     }
     free_command_line(&s_tok_buf);
@@ -250,44 +212,13 @@ void interactive_mode(void){
     }
     free(line_buf);
 }
-// Stub for lfcat
-void lfcat(const char *filename) {
-    // For now, just print something simple to confirm it's being called
-    printf("Called lfcat on: %s\n", filename);
-}
 
 int main(int argc, char const *argv[]){
+    //redirect std output
     freopen("output.txt", "w", stdout);
-    // Test calling lfcat
-    lfcat("test_file.txt");
-    // IF NEITHER MODE / INCORRECT INPUT
-    // TEST if wrong commands show the following instructions
-    // Check for valid argument counts.
-    // Interactive mode: no arguments (argc == 1)
-    // File mode: exactly 3 arguments: executable, "-f", and filename (argc == 3)
-    if (argc != 1 && (argc != 3 || strcmp(argv[1], "-f") != 0)) {
-        write(2, "Usage:\n", strlen("Usage:\n"));
-
-        // Write file mode usage message.
-        write(2, "  For File mode: ", strlen("  For File mode: "));
-        write(2, argv[0], strlen(argv[0]));
-        write(2, " -f <filename>\n", strlen(" -f <filename>\n"));
-
-        //write interactive mode message
-        write(2, "  For Interactive mode: ", strlen("  For Interactive mode: "));
-        write(2, argv[0], strlen(argv[0]));
-        write(2, "\n", 1);
-
-        //fprintf(stderr, "Usage:\n");
-        //fprintf(stderr, "  For File mode: %s -f <filename>\n", argv[0]);
-        //fprintf(stderr, "  For Interactive mode: %s\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-    if (argc == 3 && strcmp(argv[1], "-f") == 0) {
-    // Run in file mode
-    file_mode(argv[2]);
-    } else if (argc == 1) {
-        interactive_mode();
+    // start interactive mode immediately 
+    if (argc == 1) {
+        interactice_mode();
     }
     return 0;
 }
