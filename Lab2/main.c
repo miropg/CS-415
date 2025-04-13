@@ -215,6 +215,7 @@ void interactive_mode(void){
 
 int main(int argc, char const *argv[]){
     //redirect std output
+    //freopen(str w/ name of file to open, mode, file stream to redirect)
     freopen("output.txt", "w", stdout);
     // start interactive mode immediately 
     if (argc == 1) {
