@@ -12,7 +12,7 @@ the CPU.
 
 void script_print (pid_t* pid_ary, int size);
 
-int main(int argc,char*argv[])
+int main(int argc, char*argv[])
 {
 	if (argc != 2)
 	{
@@ -40,7 +40,7 @@ int main(int argc,char*argv[])
 	for(int i = 0; i < n; i++){
 		pid = fork();
 		if (pid == 0) {
-			char* args[] = {"./iobound", "-seconds", "10", NULL};
+			char* args[] = {"./iobound_1", "-seconds", "10", NULL};
 			execvp(args[0], args);
 			perror("execvp failed");
 			exit(EXIT_FAILURE);
