@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/wait.h>
 #include <fcntl.h>   // Defines O_WRONLY, O_CREAT, O_TRUNC
 #include <unistd.h>  // Defines dup2, STDOUT_FILENO, write, close
 #include "string_parser.h"
