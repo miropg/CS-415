@@ -88,7 +88,7 @@ void launch_workload(const char *filename){
 
     //fill file_array with the commands from input.txt
     len = 0;
-    line_buf = NULL:
+    line_buf = NULL;
     for (int i = 0; i < command_ctr; i++) {
         if (getline(&line_buf, &len, in_fd) == -1) {
             const char *err = "unexpected end of file\n";
@@ -155,4 +155,5 @@ int main(int argc, char const *argv[]){
         return 1;
     }
     launch_workload(argv[1]);
+    exit(EXIT_SUCCESS);
 }
