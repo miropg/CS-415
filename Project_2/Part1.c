@@ -23,6 +23,7 @@ Launching multiple programs at once (like a basic batch job launcher),
     or waitpid() to wait for them all to finish.
 5	After all processes finish, use exit() to terminate your MCP program.
 */
+
 // trimming white space function
 void trim(char *str) {
     if (str == NULL){
@@ -48,46 +49,104 @@ void launch_workload(const char *filename){
     
     FILE *in_fd = fopen(filename, "r");
     if (!in_fd) {
-        const char *err = "failier opening input file\n";
-        write(2, err, strlen(err)); //does this need write?
+        const char *err = "failure opening input file\n";
+        write(2, err, strlen(err)); 
         return;
     }
-    // Allocate a buffer for reading lines
-    // allocate memory on the heap
+
     size_t len = 0;
     char *line_buf = NULL;
-    pid_t pids[100]; //max 100 processes 
-    int count = 0;
-    //Token Type   Split By	     Represents	             Example
-    //Small Token	 " "	  Command + each argument	 "cd", "folder"
-    command_line s_tok_buf;
+    int command_ctr = 0;
 
-    //getline reads a line from batch file, stores the line in a buffer
-    //pointed to by line_buf and updates len w/ current allocated size of buffer
+    //count how many commands there are
     while (getline(&line_buf, &len, in_fd) != -1) {
-        trim(line_buf); //trim any white space away
-
-        command_line s_tok_buf = str_filler(line_buf, " ");
-        
-        pid_t pid = fork();
-        if (pid < 0) {
-            perror("fork failed");
-            exit(EXIT_FAILURE);
-        } else if (pid == 0) {
-            //execvp(const char *file, char *const argv[])
-            execvp(s_tok_buf.command_list[0], s_tok_buf.command_list);
-            perror("execvp failed");
-            exit(EXIT_FAILURE);
-        } else {
-            pids[count++] = pid;
+        trim(line_buf);
+        if (strlen(line_buf) > 0) {
+            command_ctr++;
         }
-        free_command_line(&s_tok_buf);
-    }
-    for (int i = 0; i < count; i++) {
-        waitpid(pids[i], NULL, 0);
     }
     free(line_buf);
     fclose(in_fd);
+
+    //reset ptr to beginning of file
+    in_fd = fopen(filename, "r");
+    if (!in_fd) {
+        const char *err = "failure opening input file\n";
+        write(2, err, strlen(err)); 
+        return;
+    }
+
+    //make room for array of commands
+    command_line* file_array = malloc(sizeof(command_line) * command_ctr);
+    if (!file_array) {
+        const char *err = "malloc failed\n";
+        write(2, err, strlen(err));
+        free(pids);
+        fclose(in_fd);
+        return;
+    }
+
+    //fill file_array with the commands from input.txt
+    len = 0;
+    line_buf = NULL:
+    for (int i = 0; i < command_ctr; i++) {
+        if (getline(&line_buf, &len, in_fd) == -1) {
+            const char *err = "unexpected end of file\n";
+            write(2, err, strlen(err));
+            exit(EXIT_FAILURE);
+        }
+        trim(line_buf);
+        if (strlen(line_buf) > 0) {
+            file_array[i] = str_filler(line_buf, " ");
+        } else {
+            i--; // if blank line, retry
+        }
+    }
+    free(line_buf);
+    fclose(in_fd);
+
+    //make space for pool of threads
+    pid_t pids = malloc(sizeof(pid_t) * command_ctr);
+    if (!pids) {
+        const char *err = "malloc failed\n";
+        write(2, err, strlen(err));
+        fclose(in_fd);
+        return;
+    }
+
+    //fork children, assign commands to child executables
+    for(int i = 0; i < command_ctr; i++){
+        pid_t pid = fork();
+        pids[i] = pid;
+        if(pid == 0) {
+            //child process
+            printf("I am the child process. My PID: %d\n", getpid());
+            execvp(file_array[i].command_list[0], file_array[i].command_list);
+
+            const char *err = "execvp failed\n";
+            write(2, err, strlen(err)); 
+            exit(EXIT_FAILURE);
+        } else if(pid > 0) {
+            //parent process
+            printf("I am the parent process. The child had PID: %d\n", pid);
+        } else {
+            const char *err = "fork fail\n";
+            write(2, err, strlen(err)); 
+            exit(EXIT_FAILURE);
+        }
+    }
+    // wait for all children
+    for (int i = 0; i < command_ctr; i++){
+        // wait for children by pids
+        waitpid(pids[i], NULL, 0);
+    }
+
+    //free memory
+    for (int i = 0; i < command_ctr; i++) {
+        free_command_line(&file_array[i]);
+    }
+    free(file_array);
+    free(pids);
 }
 
 int main(int argc, char const *argv[]){
