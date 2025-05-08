@@ -4,6 +4,25 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
+/*
+ * cpubound.c
+ *
+ * This program simulates a CPU-bound workload. It performs repetitive 
+ * calculations in a tight loop for a specified duration. CPU-bound tasks 
+ * primarily consume processor time with minimal interaction with external 
+ * resources like disk or network.
+ *
+ * In contrast, an I/O-bound program (like iobound) spends most of its time 
+ * waiting on input/output operations (e.g., reading/writing files), rather 
+ * than consuming CPU cycles.
+ *
+ * This program is used to test how an operating system handles processes 
+ * that are computation-heavy and push the CPU to its limits.
+ *
+ * Usage:
+ *   ./cpubound -seconds 5
+ *   (Runs the CPU-bound simulation for 5 seconds.)
+ */
 
 int main(int argc, char **argv) {
     int i, j, now, start, condition = 1, seconds = 30;

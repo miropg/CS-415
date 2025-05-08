@@ -103,7 +103,7 @@ void launch_workload(const char *filename){
     free(line_buf);
     fclose(in_fd);
 
-    //make space for pool of threads
+    //make space to store process ids (pid)
     pid_t* pids = malloc(sizeof(pid_t) * command_ctr);
     if (!pids) {
         const char *err = "malloc failed\n";
@@ -154,3 +154,52 @@ int main(int argc, char const *argv[]){
     launch_workload(argv[1]);
     exit(EXIT_SUCCESS);
 }
+
+/*
+Example run with: ./part1 input.txt
+
+// Parent forked child process 1
+I am the parent process. The child had PID: 1043686
+// Child 1 starts
+I am the child process. My PID: 1043686
+
+// Parent forked child process 2
+I am the parent process. The child had PID: 1043687
+// Child 2 starts
+I am the child process. My PID: 1043687
+
+// Parent forked child process 3 (invalid command will happen here)
+I am the parent process. The child had PID: 1043688
+
+// Parent forked child process 4 (iobound)
+I am the parent process. The child had PID: 1043689
+// Child 3 (invalid command) starts
+I am the child process. My PID: 1043688
+
+// Parent forked child process 5 (cpubound)
+I am the parent process. The child had PID: 1043690
+// Child 4 (iobound) starts
+I am the child process. My PID: 1043689
+// Child 5 (cpubound) starts
+I am the child process. My PID: 1043690
+
+// Child 3 tried to run an invalid command (execvp failed)
+execvp failed
+
+// iobound output
+Process: 1043689 - Begining to write to file.
+
+// Output from the `ls` command (child 1 or 2, depending on input.txt order)
+total 139
+ 7 string_parser.o   1 main.c      7 cpubound.c   7 Part2.c    1 EX.c
+ 7 string_parser.h   7 iobound.c  12 cpubound    12 Part1.o   12 ..
+ 7 string_parser.c  12 iobound     7 Part4.c      7 Part1.c   12 .
+12 part1             1 input.txt   7 Part3.c      7 Makefile
+
+// cpubound output
+Process: 1043690 - Begining calculation.
+
+// Done messages from iobound and cpubound
+Process: 1043690 - Finished.
+Process: 1043689 - Finished.
+*/

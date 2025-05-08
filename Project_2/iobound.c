@@ -5,6 +5,25 @@
 #include <unistd.h>
 #include <time.h>
 
+/*
+ * iobound.c
+ *
+ * This program simulates an I/O-bound workload. It repeatedly writes output 
+ * to a file (in this case, /dev/null) for a specified duration. I/O-bound 
+ * tasks spend most of their time waiting on input/output operations such as 
+ * file access or network communication rather than performing heavy computation.
+ *
+ * In contrast, a CPU-bound program (like cpubound) uses most of its time 
+ * performing calculations or logic with minimal waiting on external resources.
+ *
+ * This program is used to test how an operating system schedules and handles 
+ * tasks that are limited by I/O operations rather than raw processing power.
+ *
+ * Usage:
+ *   ./iobound -seconds 3
+ *   (Runs the I/O-bound simulation for 3 seconds.)
+ */
+
 int main(int argc, char **argv) {
     int i, j, now, start, condition = 1, seconds = 5;
     double duration;
