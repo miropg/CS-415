@@ -81,8 +81,6 @@ void launch_workload(const char *filename){
     if (!file_array) {
         const char *err = "malloc failed\n";
         write(2, err, strlen(err));
-        free(pids);
-        fclose(in_fd);
         return;
     }
 
@@ -106,11 +104,10 @@ void launch_workload(const char *filename){
     fclose(in_fd);
 
     //make space for pool of threads
-    pid_t pids = malloc(sizeof(pid_t) * command_ctr);
+    pid_t* pids = malloc(sizeof(pid_t) * command_ctr);
     if (!pids) {
         const char *err = "malloc failed\n";
         write(2, err, strlen(err));
-        fclose(in_fd);
         return;
     }
 
