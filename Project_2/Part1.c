@@ -44,49 +44,40 @@ void trim(char *str) {
     //write new null terminator
     *(end + 1) = '\0';
 }
-
-void launch_workload(const char *filename){
-    
+int count_commands_in_file(const char *filename) {
     FILE *in_fd = fopen(filename, "r");
     if (!in_fd) {
         const char *err = "failure opening input file\n";
-        write(2, err, strlen(err)); 
-        return;
+        write(2, err, strlen(err));
+        exit(EXIT_FAILURE);
     }
-
+    int count = 0;
     size_t len = 0;
     char *line_buf = NULL;
-    int command_ctr = 0;
-
-    //count how many commands there are
     while (getline(&line_buf, &len, in_fd) != -1) {
         trim(line_buf);
-        if (strlen(line_buf) > 0) {
-            command_ctr++;
-        }
+        if (strlen(line_buf) > 0) count++;
     }
     free(line_buf);
     fclose(in_fd);
+    return count;
+}
 
-    //reset ptr to beginning of file
-    in_fd = fopen(filename, "r");
+command_line* read_commands_from_file(const char *filename, int command_ctr) {
+    FILE *in_fd = fopen(filename, "r");
     if (!in_fd) {
         const char *err = "failure opening input file\n";
-        write(2, err, strlen(err)); 
-        return;
+        write(2, err, strlen(err));
+        exit(EXIT_FAILURE);
     }
-
-    //make room for array of commands
     command_line* file_array = malloc(sizeof(command_line) * command_ctr);
     if (!file_array) {
         const char *err = "malloc failed\n";
         write(2, err, strlen(err));
-        return;
+        exit(EXIT_FAILURE);
     }
-
-    //fill file_array with the commands from input.txt
-    len = 0;
-    line_buf = NULL;
+    size_t len = 0;
+    char *line_buf = NULL;
     for (int i = 0; i < command_ctr; i++) {
         if (getline(&line_buf, &len, in_fd) == -1) {
             const char *err = "unexpected end of file\n";
@@ -97,19 +88,43 @@ void launch_workload(const char *filename){
         if (strlen(line_buf) > 0) {
             file_array[i] = str_filler(line_buf, " ");
         } else {
-            i--; // if blank line, retry
+            i--; // retry for blank lines
         }
     }
     free(line_buf);
     fclose(in_fd);
+    return file_array;
+}
 
-    //make space to store process ids (pid)
+pid_t* allocate_pid_array(int command_ctr) {
     pid_t* pids = malloc(sizeof(pid_t) * command_ctr);
     if (!pids) {
         const char *err = "malloc failed\n";
         write(2, err, strlen(err));
-        return;
+        exit(EXIT_FAILURE);
     }
+    return pids;
+}
+
+void free_mem(command_line* file_array, int command_ctr, pid_t* pids) {
+    printf("\n=== MCP: All child processes completed. Cleaning up. ===\n");
+
+    // Free each parsed command line
+    for (int i = 0; i < command_ctr; i++) {
+        free_command_line(&file_array[i]);
+    }
+
+    // Free the array of command_line structs
+    free(file_array);
+
+    // Free the array of PIDs
+    free(pids);
+}
+
+void launch_workload(const char *filename){
+    int command_ctr = count_commands_in_file(filename);
+    command_line* file_array = read_commands_from_file(filename, command_ctr);
+    pid_t* pids = allocate_pid_array(command_ctr);
 
     //fork children, assign commands to child executables
     for(int i = 0; i < command_ctr; i++){
@@ -137,13 +152,7 @@ void launch_workload(const char *filename){
         // wait for children by pids
         waitpid(pids[i], NULL, 0);
     }
-
-    //free memory
-    for (int i = 0; i < command_ctr; i++) {
-        free_command_line(&file_array[i]);
-    }
-    free(file_array);
-    free(pids);
+    free_mem(file_array, command_ctr, pids);
 }
 
 int main(int argc, char const *argv[]){
