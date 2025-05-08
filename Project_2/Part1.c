@@ -154,7 +154,7 @@ void launch_workload(const char *filename){
     }
     free_mem(file_array, command_ctr, pids);
 }
-
+//MCP: Master Controller Process
 int main(int argc, char const *argv[]){
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <workload_file>\n", argv[0]);
