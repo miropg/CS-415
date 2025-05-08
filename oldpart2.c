@@ -48,40 +48,48 @@ void trim(char *str) {
     *(end + 1) = '\0';
 }
 
-int count_commands_in_file(const char *filename) {
+void launch_workload(const char *filename){
+    
     FILE *in_fd = fopen(filename, "r");
     if (!in_fd) {
         const char *err = "failure opening input file\n";
-        write(2, err, strlen(err));
-        exit(EXIT_FAILURE);
+        write(2, err, strlen(err)); 
+        return;
     }
-    int count = 0;
+
     size_t len = 0;
     char *line_buf = NULL;
+    int command_ctr = 0;
+
+    //count how many commands there are
     while (getline(&line_buf, &len, in_fd) != -1) {
         trim(line_buf);
-        if (strlen(line_buf) > 0) count++;
+        if (strlen(line_buf) > 0) {
+            command_ctr++;
+        }
     }
     free(line_buf);
     fclose(in_fd);
-    return count;
-}
 
-command_line* read_commands_from_file(const char *filename, int command_ctr) {
-    FILE *in_fd = fopen(filename, "r");
+    //reset ptr to beginning of file
+    in_fd = fopen(filename, "r");
     if (!in_fd) {
         const char *err = "failure opening input file\n";
-        write(2, err, strlen(err));
-        exit(EXIT_FAILURE);
+        write(2, err, strlen(err)); 
+        return;
     }
+
+    //make room for array of commands
     command_line* file_array = malloc(sizeof(command_line) * command_ctr);
     if (!file_array) {
         const char *err = "malloc failed\n";
         write(2, err, strlen(err));
-        exit(EXIT_FAILURE);
+        return;
     }
-    size_t len = 0;
-    char *line_buf = NULL;
+
+    //fill file_array with the commands from input.txt
+    len = 0;
+    line_buf = NULL;
     for (int i = 0; i < command_ctr; i++) {
         if (getline(&line_buf, &len, in_fd) == -1) {
             const char *err = "unexpected end of file\n";
@@ -92,83 +100,26 @@ command_line* read_commands_from_file(const char *filename, int command_ctr) {
         if (strlen(line_buf) > 0) {
             file_array[i] = str_filler(line_buf, " ");
         } else {
-            i--; // retry for blank lines
+            i--; // if blank line, retry
         }
     }
     free(line_buf);
     fclose(in_fd);
-    return file_array;
-}
 
-pid_t* allocate_pid_array(int command_ctr) {
+    //make space for pool of threads
     pid_t* pids = malloc(sizeof(pid_t) * command_ctr);
     if (!pids) {
         const char *err = "malloc failed\n";
         write(2, err, strlen(err));
-        exit(EXIT_FAILURE);
+        return;
     }
-    return pids;
-}
-
-void send_signal_to_children(pid_t* pids, int count, int signal, const char* label) {
-    for (int i = 0; i < count; i++) {
-        kill(pids[i], signal);
-        printf("MCP sent %s to PID: %d\n", label, pids[i]);
-    }
-}
-
-void coordinate_children(pid_t* pids, int command_ctr) {
-    // All children are forked and waiting
-    // send SIGUSR1 to all children
-    printf("\n=== MCP: Sending SIGUSR1 to all children ===\n");
-    send_signal_to_children(pids, command_ctr, SIGUSR1, "SIGUSR1");
-
-    //sleep so that parent does not send SIGSTOP too early, before
-    // the child is running the actual command
-    printf("\n=== MCP: Sleeping briefly to let children begin workloads ===\n");
-    sleep(1);
-
-    //pause the children with SIGSTOP
-    printf("\n=== MCP: Sending SIGSTOP to all children ===\n");
-    send_signal_to_children(pids, command_ctr, SIGSTOP, "SIGSTOP");
-
-    //let children continue work
-    printf("\n=== MCP: Sending SIGCONT to all children ===\n");
-    send_signal_to_children(pids, command_ctr, SIGCONT, "SIGCONT");
-
-    // wait for all children to finish
-    printf("\n=== MCP: Waiting for all children to complete ===\n");
-    for (int i = 0; i < command_ctr; i++){
-        waitpid(pids[i], NULL, 0);
-    }
-}
-
-void free_mem(command_line* file_array, int command_ctr, pid_t* pids) {
-    printf("\n=== MCP: All child processes completed. Cleaning up. ===\n");
-
-    // Free each parsed command line
-    for (int i = 0; i < command_ctr; i++) {
-        free_command_line(&file_array[i]);
-    }
-
-    // Free the array of command_line structs
-    free(file_array);
-
-    // Free the array of PIDs
-    free(pids);
-}
-
-void launch_workload(const char *filename){
-    int command_ctr = count_commands_in_file(filename);
-    command_line* file_array = read_commands_from_file(filename, command_ctr);
-    pid_t* pids = allocate_pid_array(command_ctr);
 
     //fork children, assign commands to child executables
     for(int i = 0; i < command_ctr; i++){
         pid_t pid = fork();
         pids[i] = pid;
         if(pid == 0) {
-            // PART 2 CODE HERE
+// PART 2 CODE HERE
             printf("Child PID: %d waiting for SIGUSR1...\n", getpid());
 
             sigset_t sigset; //a data structure to hold set of signals
@@ -202,8 +153,48 @@ void launch_workload(const char *filename){
             exit(EXIT_FAILURE);
         }
     }
-    coordinate_children(pids, command_ctr); //PART 2 CODE HERE
-    free_mem(file_array, command_ctr, pids);
+    // All children are forked and waiting
+    // send SIGUSR1 to all children
+    printf("\n=== MCP: Sending SIGUSR1 to all children ===\n");
+    for (int i = 0; i < command_ctr; i++) {
+        //kill(process ID, the signal to send)
+        //kill gives the OK for the threads to continue
+        printf("MCP sending SIGUSR1 to PID: %d\n", pids[i]);
+        kill(pids[i], SIGUSR1);
+    }
+
+    //sleep so that parent does not send SIGSTOP too early, before
+    // the child is running the actual command
+    printf("\n=== MCP: Sleeping briefly to let children begin workloads ===\n");
+    sleep(1);
+
+    //pause the children with SIGSTOP
+    printf("\n=== MCP: Sending SIGSTOP to all children ===\n");
+    for (int i = 0; i < command_ctr; i++){
+        kill(pids[i], SIGSTOP);
+        printf("MCP sent SIGSTOP to PID: %d\n", pids[i]);
+    }
+
+    //let children continue work
+    printf("\n=== MCP: Sending SIGCONT to all children ===\n");
+    for (int i = 0; i < command_ctr; i++) {
+        kill(pids[i], SIGCONT);
+        printf("MCP sent SIGCONT to PID: %d\n", pids[i]);
+    }
+
+    // wait for all children to finish
+    printf("\n=== MCP: Waiting for all children to complete ===\n");
+    for (int i = 0; i < command_ctr; i++){
+        waitpid(pids[i], NULL, 0);
+    }
+
+    //free memory
+    printf("\n=== MCP: All child processes completed. Cleaning up. ===\n");
+    for (int i = 0; i < command_ctr; i++) {
+        free_command_line(&file_array[i]);
+    }
+    free(file_array);
+    free(pids);
 }
 
 int main(int argc, char const *argv[]){
