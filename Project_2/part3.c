@@ -125,6 +125,11 @@ void signal_alarm(int signum) {
     printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
     kill(rr_pids[rr_current], SIGSTOP); // Pause current process
 
+    if (rr_alive == 1) {
+        // Only one process left, let it finish naturally instead of
+        // context switching back onto itself over and over
+        return; // skip everything below
+    }
     // find next alive process
     int next = (rr_current + 1) % rr_num_procs;
     while (rr_completed[next]) {
@@ -156,9 +161,9 @@ void round_robin(){
             //child has exited, marke it complete
             for (int i = 0; i < rr_num_procs; i++) {
                 if (rr_pids[i] == done_pid) {
-                    printf("MCP: Process PID %d finished. Remaining: %d\n", done_pid, rr_alive);
                     rr_completed[i] = true;
                     rr_alive--; //derecement count of live processes
+                    printf("MCP: Process PID %d finished. Remaining: %d\n", done_pid, rr_alive);
                     break;
                 }
             }
