@@ -122,14 +122,15 @@ void send_signal_to_children(pid_t* pids, int count, int signal, const char* lab
 }
 
 void signal_alarm(int signum) {
-    printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
-    kill(rr_pids[rr_current], SIGSTOP); // Pause current process
-
     if (rr_alive == 1) {
         // Only one process left, let it finish naturally instead of
         // context switching back onto itself over and over
         return; // skip everything below
     }
+    
+    printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
+    kill(rr_pids[rr_current], SIGSTOP); // Pause current process
+
     // find next alive process
     int next = (rr_current + 1) % rr_num_procs;
     while (rr_completed[next]) {
