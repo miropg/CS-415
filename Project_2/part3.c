@@ -274,7 +274,8 @@ void launch_workload(const char *filename){
             exit(EXIT_FAILURE);
         } else if(pid > 0) {
             //parent process
-            printf("I am the parent process. The child had PID: %d\n", pid);
+            //printf("I am the parent process. The child had PID: %d\n", pid);
+            printf("MCP: Forked child PID %d for command: %s\n", pid, file_array[i].command_list[0]);
         } else {
             const char *err = "fork fail\n";
             write(2, err, strlen(err)); 
