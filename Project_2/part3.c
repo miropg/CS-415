@@ -144,7 +144,7 @@ void round_robin(){
     //start with 1st process
     rr_current = 0;
     //start 1st child process
-    kill(rr_pids[rr_currnt], SIGCONT);
+    kill(rr_pids[rr_current], SIGCONT);
     alarm(1); // Sets a timer that sends SIGALRM after 1 second
 
     //loop until all processes finish, while they are alive
