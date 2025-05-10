@@ -131,13 +131,31 @@ void print_proc_stats(pid_t pid) {
     char state;
     unsigned long utime, stime;
     long rss;
+    
+    // Defensive parse: check each fscanf return value
+    if (fscanf(fp, "%d %s %c", &pid_read, comm, &state) != 3) {
+        fclose(fp);
+        return;
+    }
+
+    for (int i = 0; i < 10; i++) fscanf(fp, "%*s"); // skip fields
+    if (fscanf(fp, "%lu %lu", &utime, &stime) != 2) {
+        fclose(fp);
+        return;
+    }
+
+    for (int i = 0; i < 7; i++) fscanf(fp, "%*s");
+    if (fscanf(fp, "%ld", &rss) != 1) {
+        fclose(fp);
+        return;
+    }
 
     // Skip unneeded fields, extract only what we want
-    fscanf(fp, "%d %s %c", &pid_read, comm, &state);
-    for (int i = 0; i < 10; i++) fscanf(fp, "%*s"); // skip 10 fields
-    fscanf(fp, "%lu %lu", &utime, &stime);          // fields 14 and 15
-    for (int i = 0; i < 7; i++) fscanf(fp, "%*s");   // skip to rss
-    fscanf(fp, "%ld", &rss);                        // field 24
+    // fscanf(fp, "%d %s %c", &pid_read, comm, &state);
+    // for (int i = 0; i < 10; i++) fscanf(fp, "%*s"); // skip 10 fields
+    // fscanf(fp, "%lu %lu", &utime, &stime);          // fields 14 and 15
+    // for (int i = 0; i < 7; i++) fscanf(fp, "%*s");   // skip to rss
+    // fscanf(fp, "%ld", &rss);                        // field 24
 
     fclose(fp);
 
@@ -204,6 +222,11 @@ void round_robin(){
     kill(rr_pids[rr_current], SIGCONT);
     alarm(1); // Sets a timer that sends SIGALRM after 1 second
 
+    int initial_lines = get_stats_lines();
+        for (int i = 0; i < initial_lines; i++) {
+        printf("\n");
+    }
+
     //loop until all processes finish, while they are alive
     while (rr_alive > 0) {
         int status;
@@ -225,7 +248,7 @@ void round_robin(){
         printf("\r"); // Return to beginning of line
         // print live stats
         // only print processes that are still alive, otherwise you get a file-not-found error
-        printf("\n=== MCP: Resource Usage for Processes ===\n");
+        printf("=== MCP: Resource Usage for Processes ===\n");
         proc_stats_header();
         for (int i = 0; i < rr_num_procs; i++) {
             if (!rr_completed[i]) {
