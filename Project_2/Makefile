@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -g -Wall
 
-# Default target: build part1, part2, and part3
-all: part1 part2 part3
+# Default target: build all parts
+all: part1 part2 part3 part4
 
 # Part1 build
 part1: part1.o string_parser.o
@@ -25,6 +25,13 @@ part3: part3.o string_parser.o
 part3.o: part3.c
 	$(CC) $(CFLAGS) -c part3.c
 
+# Part4 build (same deps as part3, but includes /proc enhancements)
+part4: part4.o string_parser.o
+	$(CC) $(CFLAGS) part4.o string_parser.o -o part4
+
+part4.o: part4.c
+	$(CC) $(CFLAGS) -c part4.c
+
 # Shared object
 string_parser.o: string_parser.c string_parser.h
 	$(CC) $(CFLAGS) -c string_parser.c
@@ -39,6 +46,9 @@ run2: part2
 run3: part3
 	./part3 input.txt
 
+run4: part4
+	./part4 input.txt
+
 # Clean everything
 clean:
-	rm -f *.o part1 part2 part3
+	rm -f *.o part1 part2 part3 part4
