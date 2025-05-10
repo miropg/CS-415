@@ -211,6 +211,7 @@ void round_robin(){
         }
         // print live stats
         // only print processes that are still alive, otherwise you get a file-not-found error
+        printf("\033[H\033[J"); // ANSI escape codes to clear the screen
         printf("\n=== MCP: Resource Usage for Processes ===\n");
         proc_stats_header();
         for (int i = 0; i < rr_num_procs; i++) {
