@@ -179,6 +179,15 @@ void signal_alarm(int signum) {
     alarm(1); // Set up next time quantum
 }
 
+// formatting for live stats table
+int get_stats_lines() {
+    int alive_count = 0;
+    for (int i = 0; i < rr_num_procs; i++) {
+        if (!rr_completed[i]) count++;
+    }
+    return 3 + count;
+}
+
 /*Your MCP 4.0 must output the analyzed process information 
 for every child process each time the scheduler completes a cycle."*/
 
@@ -192,6 +201,11 @@ void round_robin(){
     //start 1st child process
     kill(rr_pids[rr_current], SIGCONT);
     alarm(1); // Sets a timer that sends SIGALRM after 1 second
+
+    // Reserve space so table doesn't overwrite logs
+    for (int i = 0; i < stats_lines; i++) {
+        printf("\n");
+    }
 
     //loop until all processes finish, while they are alive
     while (rr_alive > 0) {
@@ -209,6 +223,9 @@ void round_robin(){
                 }
             }
         }
+        int stats_lines = get_stats_lines();
+        printf("\033[%dA", stats_lines);// Move up N lines
+        printf("\r"); // Return to beginning of line
         // print live stats
         // only print processes that are still alive, otherwise you get a file-not-found error
         printf("\n=== MCP: Resource Usage for Processes ===\n");
@@ -219,7 +236,7 @@ void round_robin(){
             }    
         }
         //improve amount of busy waiting
-        usleep(100000); // 10ms
+        usleep(100000); // 100ms
     }
 }
 
