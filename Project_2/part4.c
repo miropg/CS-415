@@ -223,11 +223,12 @@ void round_robin(){
     alarm(1); // Sets a timer that sends SIGALRM after 1 second
 
     // Reserve terminal space for the full table (max needed)
-    int initial_lines = 3 + rr_num_procs; 
-    for (int i = 0; i < initial_lines; i++) {
+    int max_lines = 3 + rr_num_procs; 
+    for (int i = 0; i < max_lines; i++) {
         printf("\n");
     }
 
+    bool first_draw = true;
     //loop until all processes finish, while they are alive
     while (rr_alive > 0) {
         int status;
@@ -245,7 +246,12 @@ void round_robin(){
             }
         }
         int stats_lines = get_stats_lines();
-        printf("\033[%dA\r", stats_lines);// Move up N lines, Return to beginning of line
+        
+         if (!first_draw) {
+            printf("\033[%dA\r", stats_lines);  // move up to overwrite previous table
+        } else {
+            first_draw = false;
+        }
 
         //redraw table
         printf("=== MCP: Resource Usage for Processes ===\n");
