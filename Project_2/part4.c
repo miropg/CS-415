@@ -181,9 +181,11 @@ void signal_alarm(int signum) {
 
 // formatting for live stats table
 int get_stats_lines() {
-    int alive_count = 0;
+    int count = 0;
     for (int i = 0; i < rr_num_procs; i++) {
-        if (!rr_completed[i]) count++;
+        if (!rr_completed[i]) {
+            count++;
+        }
     }
     return 3 + count;
 }
@@ -201,11 +203,6 @@ void round_robin(){
     //start 1st child process
     kill(rr_pids[rr_current], SIGCONT);
     alarm(1); // Sets a timer that sends SIGALRM after 1 second
-
-    // Reserve space so table doesn't overwrite logs
-    for (int i = 0; i < stats_lines; i++) {
-        printf("\n");
-    }
 
     //loop until all processes finish, while they are alive
     while (rr_alive > 0) {
