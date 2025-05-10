@@ -246,16 +246,16 @@ void round_robin(){
             }
         }
         int stats_lines = get_stats_lines();
-        
+
          if (!first_draw) {
             printf("\033[%dA\r", stats_lines);  // move up to overwrite previous table
         } else {
             first_draw = false;
+             //redraw table
+            printf("=== MCP: Resource Usage for Processes ===\n");
+            proc_stats_header();
         }
-
-        //redraw table
-        printf("=== MCP: Resource Usage for Processes ===\n");
-        proc_stats_header();
+ 
         for (int i = 0; i < rr_num_procs; i++) {
             if (!rr_completed[i]) {
                 print_proc_stats(rr_pids[i]);
