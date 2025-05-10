@@ -222,9 +222,11 @@ void round_robin(){
     kill(rr_pids[rr_current], SIGCONT);
     alarm(1); // Sets a timer that sends SIGALRM after 1 second
 
-    // Reserve terminal space for the full table (max needed)
-    int max_lines = 3 + rr_num_procs; 
-    for (int i = 0; i < max_lines; i++) {
+    printf("=== MCP: Resource Usage for Processes ===\n");
+    proc_stats_header();
+
+    // Reserve vertical space for table rows
+    for (int i = 0; i < rr_num_procs; i++) {
         printf("\n");
     }
 
@@ -241,25 +243,27 @@ void round_robin(){
                     rr_completed[i] = true;
                     rr_alive--; //derecement count of live processes
                     printf("MCP: Process PID %d finished. Remaining: %d\n", done_pid, rr_alive);
+                    fflush(stdout);  // Ensure this prints before table redraw
                     break;
                 }
             }
         }
-        int stats_lines = get_stats_lines();
 
-         if (!first_draw) {
-            printf("\033[%dA\r", stats_lines);  // move up to overwrite previous table
+        if (!first_draw) {
+            printf("\033[%dA\r", rr_num_procs);  // move up to overwrite previous table
         } else {
             first_draw = false;
              //redraw table
-            printf("=== MCP: Resource Usage for Processes ===\n");
-            proc_stats_header();
         }
- 
+        int printed = 0;
         for (int i = 0; i < rr_num_procs; i++) {
             if (!rr_completed[i]) {
                 print_proc_stats(rr_pids[i]);
+                printed++;
             }    
+        }
+        for (int i = printed; i < rr_num_procs; i++) {
+            printf("%-8s %-20s %-6s %-10s %-10s\n", "", "", "", "", "");
         }
         //improve amount of busy waiting
         usleep(100000); // sleep for 100ms
