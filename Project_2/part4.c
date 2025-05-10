@@ -131,7 +131,7 @@ void print_proc_stats(pid_t pid) {
     char state;
     unsigned long utime, stime;
     long rss;
-    
+
     // Defensive parse: check each fscanf return value
     if (fscanf(fp, "%d %s %c", &pid_read, comm, &state) != 3) {
         fclose(fp);
@@ -222,8 +222,9 @@ void round_robin(){
     kill(rr_pids[rr_current], SIGCONT);
     alarm(1); // Sets a timer that sends SIGALRM after 1 second
 
-    int initial_lines = get_stats_lines();
-        for (int i = 0; i < initial_lines; i++) {
+    // Reserve terminal space for the full table (max needed)
+    int initial_lines = 3 + rr_num_procs; 
+    for (int i = 0; i < initial_lines; i++) {
         printf("\n");
     }
 
@@ -244,10 +245,9 @@ void round_robin(){
             }
         }
         int stats_lines = get_stats_lines();
-        printf("\033[%dA", stats_lines);// Move up N lines
-        printf("\r"); // Return to beginning of line
-        // print live stats
-        // only print processes that are still alive, otherwise you get a file-not-found error
+        printf("\033[%dA\r", stats_lines);// Move up N lines, Return to beginning of line
+
+        //redraw table
         printf("=== MCP: Resource Usage for Processes ===\n");
         proc_stats_header();
         for (int i = 0; i < rr_num_procs; i++) {
@@ -256,7 +256,7 @@ void round_robin(){
             }    
         }
         //improve amount of busy waiting
-        usleep(100000); // 100ms
+        usleep(100000); // sleep for 100ms
     }
 }
 
