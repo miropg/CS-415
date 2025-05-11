@@ -197,16 +197,23 @@ void signal_alarm(int signum) {
     alarm(1); // Set up next time quantum
 }
 
-// formatting for live stats table
-int get_stats_lines() {
-    int count = 0;
+void redraw_table() {
+    int max_lines = 3 + rr_num_procs;
+    printf("\033[%dA\r", max_lines);
+    for (int i = 0; i < max_lines; i++) {
+        printf("\033[K\n");
+    }
+    printf("\033[%dA", max_lines);
+
+    printf("=== MCP: Resource Usage for Processes ===\n");
+    proc_stats_header();
     for (int i = 0; i < rr_num_procs; i++) {
         if (!rr_completed[i]) {
-            count++;
+            print_proc_stats(rr_pids[i]);
         }
     }
-    return 3 + count;
 }
+
 
 /*Your MCP 4.0 must output the analyzed process information 
 for every child process each time the scheduler completes a cycle."*/
@@ -222,11 +229,8 @@ void round_robin(){
     kill(rr_pids[rr_current], SIGCONT);
     alarm(1); // Sets a timer that sends SIGALRM after 1 second
 
-    printf("=== MCP: Resource Usage for Processes ===\n");
-    proc_stats_header();
-
-    // Reserve vertical space for table rows
-    for (int i = 0; i < rr_num_procs; i++) {
+    int max_lines = 3 + rr_num_procs;
+    for (int i = 0; i < max_lines; i++) {
         printf("\n");
     }
 
@@ -248,23 +252,7 @@ void round_robin(){
                 }
             }
         }
-
-        if (!first_draw) {
-            printf("\033[%dA\r", rr_num_procs);  // move up to overwrite previous table
-        } else {
-            first_draw = false;
-             //redraw table
-        }
-        int printed = 0;
-        for (int i = 0; i < rr_num_procs; i++) {
-            if (!rr_completed[i]) {
-                print_proc_stats(rr_pids[i]);
-                printed++;
-            }    
-        }
-        for (int i = printed; i < rr_num_procs; i++) {
-            printf("%-8s %-20s %-6s %-10s %-10s\n", "", "", "", "", "");
-        }
+        redraw_table();
         //improve amount of busy waiting
         usleep(100000); // sleep for 100ms
     }
