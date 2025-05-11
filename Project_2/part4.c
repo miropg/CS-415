@@ -253,9 +253,10 @@ void redraw_table(int completed, int remaining) {
                          "RESUMED" : "STARTED";
     rr_started[rr_current] = true;
 
-    print_current_process_stats(
-            rr_pids[rr_current], rr_current,
-            complete, remain, status);
+    print_current_process_stats(rr_pids[rr_current], rr_current,
+        completed,            
+        remaining,           
+        status);
 
     fflush(stdout);
 }
