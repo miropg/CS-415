@@ -29,6 +29,7 @@ static bool* rr_completed = NULL;     // tracks which children are done
 static int rr_alive = 0;              // number of children still alive
 int num_done = 0;
 static bool* rr_started = NULL;
+int lines_to_clear = 0;
 
 void trim(char *str) {
     if (str == NULL){
@@ -133,6 +134,7 @@ pid_t* allocate_pid_array(int command_ctr) {
 // se.sum_exec_runtime → CPU time in nanoseconds
 // se.statistics.run_delay → how long the process was waiting
 void print_current_process_stats(pid_t pid, int proc_index, int completed, int remaining, const char* mcp_status) {
+    int lines = 0;
     char path[64], buffer[1024];
 
     // === Read /proc/[pid]/stat ===
@@ -187,27 +189,29 @@ void print_current_process_stats(pid_t pid, int proc_index, int completed, int r
     // === Format ===
     double total_cpu_seconds = (utime + stime) / (double)sysconf(_SC_CLK_TCK);
 
-    printf("\n*********************************************\n");
-    printf("* Program name:           %-15s\n", comm);
-    printf("* Process ID:             %d\n", pid);
-    printf("* Process Number:         %d\n", proc_index);
-    printf("* MCP Status:             %s\n", mcp_status);
-    printf("* Virtual Memory Usage:   %ld kB\n", vm_size);
-    printf("* Physical Memory Usage:  %ld kB\n", vm_rss);
-    printf("* Threads:                %d\n", threads);
-    printf("* Voluntary Context Switches:     %d\n", voluntary_ctxt);
-    printf("* Nonvoluntary Context Switches:  %d\n", nonvoluntary_ctxt);
-    printf("* User time:              %.2f\n", utime / (double)sysconf(_SC_CLK_TCK));
-    printf("* Kernel time:            %.2f\n", stime / (double)sysconf(_SC_CLK_TCK));
-    printf("* Priority:               %d\n", priority);
-    printf("* Nice level:             %d\n", nice);
-    printf("* Total CPU Seconds:      %.6f\n", total_cpu_seconds);
-    printf("* CPU Utilization Nanoseconds:  %ld\n", cpu_util_ns);
-    printf("* CPU Runnable Nanoseconds:     %ld\n", cpu_runnable_ns);
-    printf("* -------------------------------\n");
-    printf("* Processes Complete:     %d\n", completed);
-    printf("* Processes Remaining:    %d\n", remaining);
-    printf("*********************************************\n\n");
+    printf("\n*********************************************\n"); lines++;
+    printf("* Program name:           %-15s\n", comm); lines++;
+    printf("* Process ID:             %d\n", pid); lines++;
+    printf("* Process Number:         %d\n", proc_index); lines++;
+    printf("* MCP Status:             %s\n", mcp_status); lines++;
+    printf("* Virtual Memory Usage:   %ld kB\n", vm_size); lines++;
+    printf("* Physical Memory Usage:  %ld kB\n", vm_rss); lines++;
+    printf("* Threads:                %d\n", threads); lines++;
+    printf("* Voluntary Context Switches:     %d\n", voluntary_ctxt); lines++;
+    printf("* Nonvoluntary Context Switches:  %d\n", nonvoluntary_ctxt); lines++;
+    printf("* User time:              %.2f\n", utime / (double)sysconf(_SC_CLK_TCK)); lines++;
+    printf("* Kernel time:            %.2f\n", stime / (double)sysconf(_SC_CLK_TCK)); lines++;
+    printf("* Priority:               %d\n", priority); lines++;
+    printf("* Nice level:             %d\n", nice); lines++;
+    printf("* Total CPU Seconds:      %.6f\n", total_cpu_seconds); lines++;
+    printf("* CPU Utilization Nanoseconds:  %ld\n", cpu_util_ns); lines++;
+    printf("* CPU Runnable Nanoseconds:     %ld\n", cpu_runnable_ns); lines++;
+    printf("* -------------------------------\n"); lines++;
+    printf("* Processes Complete:     %d\n", completed); lines++;
+    printf("* Processes Remaining:    %d\n", remaining); lines++;
+    printf("*********************************************\n\n"); lines++;
+
+    return lines;
 }
 
 void send_signal_to_children(pid_t* pids, int count, int signal, const char* label) {
@@ -230,10 +234,16 @@ void signal_alarm(int signum) {
     alarm(1);  // Schedule next time slice
 }
 
-void redraw_table(int completed, int remaining) {
-    printf("\033[H\033[J");  // Move cursor to top and clear screen
+void redraw_table(int completed, int remaining, int lines_to_clear) {
+    printf("\033[%dA", lines_to_clear);
+    for (int i = 0; i < lines_to_clear; i++) {
+        printf("\033[K\n");
+    }
+    printf("\033[%dA", lines_to_clear);
+
     const char* status = rr_started[rr_current] ? "RESUMED" : "STARTED";
     rr_started[rr_current] = true;
+
     print_current_process_stats(rr_pids[rr_current], rr_current, completed, remaining, status);
 }
 
@@ -259,12 +269,14 @@ void round_robin(){
                     num_done++;
                     const char* status = rr_started[rr_current] ? "RESUMED" : "STARTED";
                     rr_started[rr_current] = true;
-                    print_current_process_stats(rr_pids[rr_current], rr_current, num_done, rr_alive, status);
+                    lines_to_clear = print_current_process_stats(rr_pids[rr_current], rr_current, num_done, rr_alive, status);
                     break;
                 }
             }
         }
-        redraw_table(num_done, rr_alive);
+        if (rr_alive > 0) {
+        redraw_table(num_done, rr_alive, lines_to_clear);
+    }
         usleep(100000);  // 100ms delay
     }
 }
