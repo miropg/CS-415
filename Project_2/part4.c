@@ -140,7 +140,7 @@ int print_current_process_stats(pid_t pid, int proc_index, int completed, int re
     // === Read /proc/[pid]/stat ===
     snprintf(path, sizeof(path), "/proc/%d/stat", pid);
     FILE *fp_stat = fopen(path, "r");
-    if (!fp_stat) return;
+    if (!fp_stat) return 0;
 
     int pid_read, priority, nice;
     char comm[256], state;
@@ -161,7 +161,7 @@ int print_current_process_stats(pid_t pid, int proc_index, int completed, int re
     // === Read /proc/[pid]/status ===
     snprintf(path, sizeof(path), "/proc/%d/status", pid);
     FILE *fp_status = fopen(path, "r");
-    if (!fp_status) return;
+    if (!fp_status) return 0;
 
     long vm_size = -1, vm_rss = -1;
     int voluntary_ctxt = -1, nonvoluntary_ctxt = -1, threads = -1;
