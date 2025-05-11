@@ -259,7 +259,9 @@ void round_robin(){
                     rr_completed[i] = true;
                     rr_alive--;
                     num_done++;
-                    print_current_process_stats(rr_pids[rr_current], rr_current, num_done, rr_alive);
+                    const char* status = rr_started[rr_current] ? "RESUMED" : "STARTED";
+                    rr_started[rr_current] = true;
+                    print_current_process_stats(rr_pids[rr_current], rr_current, num_done, rr_alive, status);
                     break;
                 }
             }
