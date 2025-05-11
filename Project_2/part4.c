@@ -29,6 +29,7 @@ static bool* rr_completed = NULL;     // tracks which children are done
 static int rr_alive = 0;              // number of children still alive
 int num_done = 0;
 static bool* rr_started = NULL;
+volatile sig_atomic_t should_redraw = 0;
 
 void trim(char *str) {
     if (str == NULL){
@@ -228,19 +229,35 @@ void signal_alarm(int signum) {
 
     kill(rr_pids[rr_current], SIGCONT);  // Resume next
     alarm(1);  // Schedule next time slice
+
+    should_redraw = 1;  // Flag to redraw next loop cycle
 }
 
 void redraw_table(int completed, int remaining) {
-    int lines = 22;  // actual number of lines in the stats output
-    printf("\033[%dA", lines);
-    for (int i = 0; i < lines; i++) {
-    printf("\033[K\033[E"); // Clear line and move to next
-    }
-    printf("\033[%dA", lines);
+    const int lines = 22;          // height of your table
+    /* Move cursor lines rows up, stay in column 1 */
+    printf("\033[%dF", lines);     // CUU(lines) + CR  =  ESC [ <n> F
 
-    const char* status = rr_started[rr_current] ? "RESUMED" : "STARTED";
+    /* Clear each of the next <lines> rows without moving
+       the cursor past the very last row (avoids scrolling). */
+    for (int i = 0; i < lines; ++i) {
+        printf("\033[2K");        // ED line (ESC [ 2 K)
+        if (i < lines - 1)
+            printf("\033[1B");    // CUD 1  (down exactly one row)
+    }
+
+    /* Jump back to the first line of the block */
+    printf("\033[%dF", lines);
+
+    const char *status = rr_started[rr_current] ?
+                         "RESUMED" : "STARTED";
     rr_started[rr_current] = true;
-    print_current_process_stats(rr_pids[rr_current], rr_current, completed, remaining, status);
+
+    print_current_process_stats(
+            rr_pids[rr_current], rr_current,
+            complete, remain, status);
+
+    fflush(stdout);
 }
 
 /*Your MCP 4.0 must output the analyzed process information 
@@ -270,8 +287,9 @@ void round_robin(){
                 }
             }
         }
-        if (rr_alive > 0) {
-        redraw_table(num_done, rr_alive);  // only redraw if processes still running
+        if (should_redraw) {
+            redraw_table(num_done, rr_alive);
+            should_redraw = 0;
     }
         usleep(100000);  // 100ms delay
     }
