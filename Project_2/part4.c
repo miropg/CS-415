@@ -133,7 +133,6 @@ pid_t* allocate_pid_array(int command_ctr) {
 // se.sum_exec_runtime → CPU time in nanoseconds
 // se.statistics.run_delay → how long the process was waiting
 void print_current_process_stats(pid_t pid, int proc_index, int completed, int remaining, const char* mcp_status) {
-    int lines = 0;
     char path[64], buffer[1024];
 
     // === Read /proc/[pid]/stat ===
