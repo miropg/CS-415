@@ -234,7 +234,7 @@ void redraw_table(int completed, int remaining) {
     int lines = 22;  // actual number of lines in the stats output
     printf("\033[%dA", lines);
     for (int i = 0; i < lines; i++) {
-        printf("\033[K\033[1B");  // Clear line and move down
+    printf("\033[K\033[E"); // Clear line and move to next
     }
     printf("\033[%dA", lines);
 
