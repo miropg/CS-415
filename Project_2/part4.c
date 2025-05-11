@@ -199,12 +199,19 @@ void signal_alarm(int signum) {
 
 void redraw_table() {
     int max_lines = 3 + rr_num_procs;
-    printf("\033[%dA\r", max_lines);
+
+    printf("\033[s");             // Save current cursor position
+    printf("\033[999B");          // Move to bottom of the terminal
+    printf("\033[%dA", max_lines); // Move up to the reserved table area
+
+    // Clear the table space line by line
     for (int i = 0; i < max_lines; i++) {
         printf("\033[K\n");
     }
-    printf("\033[%dA", max_lines);
 
+    printf("\033[%dA", max_lines); // Move back up to start of table
+
+    // Now draw the table
     printf("=== MCP: Resource Usage for Processes ===\n");
     proc_stats_header();
     for (int i = 0; i < rr_num_procs; i++) {
@@ -212,7 +219,11 @@ void redraw_table() {
             print_proc_stats(rr_pids[i]);
         }
     }
+
+    printf("\033[u"); // Restore original cursor position
+    fflush(stdout);   // Force flush in case stdout is line-buffered
 }
+
 
 
 /*Your MCP 4.0 must output the analyzed process information 
@@ -229,6 +240,7 @@ void round_robin(){
     kill(rr_pids[rr_current], SIGCONT);
     alarm(1); // Sets a timer that sends SIGALRM after 1 second
 
+    // Print blank lines to create table space at bottom
     int max_lines = 3 + rr_num_procs;
     for (int i = 0; i < max_lines; i++) {
         printf("\n");
@@ -246,7 +258,7 @@ void round_robin(){
                     rr_completed[i] = true;
                     rr_alive--; //derecement count of live processes
                     printf("MCP: Process PID %d finished. Remaining: %d\n", done_pid, rr_alive);
-                    fflush(stdout);  // Ensure this prints before table redraw
+                    fflush(stdout);  // Make sure it prints now
                     break;
                 }
             }
