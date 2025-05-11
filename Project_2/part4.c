@@ -176,42 +176,31 @@ void send_signal_to_children(pid_t* pids, int count, int signal, const char* lab
 void signal_alarm(int signum) {
     // code to try and let it finish the last one without resending signal
     // did not work, just let it reschedule same process even if it wastes
-    // CPU time
-    // if (rr_alive == 1) {
-    //     // Only one process left, let it finish naturally instead of
-    //     // context switching back onto itself over and over
-    //     return; // skip everything below
-    // }
-    
     printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
-    kill(rr_pids[rr_current], SIGSTOP); // Pause current process
+    fflush(stdout);  // Ensure it prints before table redraw
+    kill(rr_pids[rr_current], SIGSTOP);
 
-    // find next alive process
     int next = (rr_current + 1) % rr_num_procs;
     while (rr_completed[next]) {
         next = (next + 1) % rr_num_procs;
     }
     rr_current = next;
+
     printf("MCP: Switching to PID %d\n", rr_pids[rr_current]);
-    kill(rr_pids[rr_current], SIGCONT); // Resume next
-    alarm(1); // Set up next time quantum
+    fflush(stdout);
+    kill(rr_pids[rr_current], SIGCONT);
+    alarm(1);
 }
 
 void redraw_table() {
     int max_lines = 3 + rr_num_procs;
 
-    printf("\033[s");             // Save current cursor position
-    printf("\033[999B");          // Move to bottom of the terminal
-    printf("\033[%dA", max_lines); // Move up to the reserved table area
-
-    // Clear the table space line by line
+    printf("\033[%dA", max_lines);   // Move up to start of table
     for (int i = 0; i < max_lines; i++) {
-        printf("\033[K\n");
+        printf("\033[K\n");          // Clear line, then move down
     }
+    printf("\033[%dA", max_lines);   // Move back up to top
 
-    printf("\033[%dA", max_lines); // Move back up to start of table
-
-    // Now draw the table
     printf("=== MCP: Resource Usage for Processes ===\n");
     proc_stats_header();
     for (int i = 0; i < rr_num_procs; i++) {
@@ -219,9 +208,7 @@ void redraw_table() {
             print_proc_stats(rr_pids[i]);
         }
     }
-
-    printf("\033[u"); // Restore original cursor position
-    fflush(stdout);   // Force flush in case stdout is line-buffered
+    fflush(stdout);
 }
 
 
@@ -245,7 +232,8 @@ void round_robin(){
     for (int i = 0; i < max_lines; i++) {
         printf("\n");
     }
-
+    fflush(stdout);
+    
     //loop until all processes finish, while they are alive
     while (rr_alive > 0) {
         int status;
