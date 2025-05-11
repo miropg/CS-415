@@ -234,7 +234,6 @@ void round_robin(){
         printf("\n");
     }
 
-    bool first_draw = true;
     //loop until all processes finish, while they are alive
     while (rr_alive > 0) {
         int status;
