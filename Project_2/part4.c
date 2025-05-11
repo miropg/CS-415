@@ -7,29 +7,35 @@
 #include <unistd.h>  // Defines dup2, STDOUT_FILENO, write, close
 #include <signal.h>
 #include <stdbool.h>
+#include <sys/types.h>
 #include "string_parser.h"
 /*
-Part 4
-After each time slice, MCP must act like a mini top, reading /proc, 
-picking out meaningful info, and printing it cleanly.
-You are adding live system monitoring to your scheduler
+MCP v3.0 must act like a real CPU scheduler: let each process run for a short
+time, then pause it and switch to the next, over and over, until all are done.
+You are building a basic multitasking system now!
 
-1	After each scheduler cycle (each time slice), gather information from 
-    /proc for every workload process.
-2	Pick useful information like: execution time, memory usage, I/O stats.
-3	Analyze and nicely format the output (not just raw dump).
-4	Display an updated table of stats every cycle (kind of like Linux top).
-5	Continue gathering and showing stats until all processes finish.
+1	Upgrade MCP v2.0 into MCP v3.0 — add scheduling (time-sharing).
+2	Give each process a small time slice to run (e.g., 1 second each).
+3	Use alarm() to set a timer that delivers a SIGALRM after the time 
+    slice expires.
+4	When the MCP receives a SIGALRM, it must:
+4a	Send SIGSTOP to suspend the currently running process.
+4b	Pick the next ready process (Round Robin or similar policy).
+4c	Send SIGCONT to resume the next process.
+4d	Set another alarm(1) to repeat the cycle.
+5	Keep doing this until all workload processes finish.
 */
+
 //Round Robin Global Variables
 static pid_t* rr_pids = NULL;         // Global pointer to child PIDs
 static int rr_num_procs = 0;          // Total number of children
 static int rr_current = 0;            // Current process index
 static bool* rr_completed = NULL;     // tracks which children are done
 static int rr_alive = 0;              // number of children still alive
-int num_done = 0;
-static bool* rr_started = NULL;
-volatile sig_atomic_t should_redraw = 0;
+
+static int num_done     = 0;      /* children that have finished */
+static bool *rr_started   = NULL;      /* first‑time vs resumed */
+static volatile sig_atomic_t should_redraw = 0;   /* ask main loop to repaint */
 
 void trim(char *str) {
     if (str == NULL){
@@ -112,27 +118,6 @@ pid_t* allocate_pid_array(int command_ctr) {
     }
     return pids;
 }
-
-//PART 4 Code
-// void proc_stats_header() {
-//     printf("%-8s %-20s %-6s %-10s %-10s\n", "PID", "NAME", "STATE", "CPU(s)", "MEM(KB)");
-//     printf("---------------------------------------------------------------\n");
-// }
-
-//NEW LIVE TABLE
-//PART 4 Code
-// Files to be read
-// /proc/[pid]/stat – You get:
-// utime, stime → user and kernel CPU time
-// priority, nice
-// comm, state (command name and status)
-// /proc/[pid]/status – You get:
-// VmSize, VmRSS → virtual and physical memory
-// Threads
-// voluntary_ctxt_switches, nonvoluntary_ctxt_switches
-// /proc/[pid]/sched – You get:
-// se.sum_exec_runtime → CPU time in nanoseconds
-// se.statistics.run_delay → how long the process was waiting
 void print_current_process_stats(pid_t pid, int proc_index, int completed, int remaining, const char* mcp_status) {
     char path[64], buffer[1024];
 
@@ -214,74 +199,76 @@ void print_current_process_stats(pid_t pid, int proc_index, int completed, int r
 void send_signal_to_children(pid_t* pids, int count, int signal, const char* label) {
     for (int i = 0; i < count; i++) {
         kill(pids[i], signal);
-       
     }
 }
 
 void signal_alarm(int signum) {
-    kill(rr_pids[rr_current], SIGSTOP);  // Pause current
+    // code to try and let it finish the last one without resending signal
+    // did not work, just let it reschedule same process even if it wastes
+    // CPU time
+    // if (rr_alive == 1) {
+    //     // Only one process left, let it finish naturally instead of
+    //     // context switching back onto itself over and over
+    //     return; // skip everything below
+    // }
+    kill(rr_pids[rr_current], SIGSTOP); // Pause current process
 
+    // find next alive process
     int next = (rr_current + 1) % rr_num_procs;
-    while (rr_completed[next]) {
-        next = (next + 1) % rr_num_procs;
-    }
+    while (rr_completed[next]) next = (next + 1) % rr_num_procs;
     rr_current = next;
 
-    kill(rr_pids[rr_current], SIGCONT);  // Resume next
-    alarm(1);  // Schedule next time slice
+    kill(rr_pids[rr_current], SIGCONT);
+    alarm(1);
 
-    should_redraw = 1;  // Flag to redraw next loop cycle
+    should_redraw = 1;                // repaint on next loop 
 }
 
-void redraw_table(int completed, int remaining) {
-    const int lines = 22;          // height of your table
-    /* Move cursor lines rows up, stay in column 1 */
-    printf("\033[%dF", lines);     // CUU(lines) + CR  =  ESC [ <n> F
+/* overwrite the same 22‑line window every time we repaint */
+static void redraw_table(int done, int remain)
+{
+    const int lines = 22;
 
-    /* Clear each of the next <lines> rows without moving
-       the cursor past the very last row (avoids scrolling). */
+    /* move cursor to first line of the block */
+    printf("\033[%dF", lines);       /* CUU(lines) + CR         */
+
+    /* clear exactly <lines> rows without scrolling */
     for (int i = 0; i < lines; ++i) {
-        printf("\033[2K");        // ED line (ESC [ 2 K)
-        if (i < lines - 1)
-            printf("\033[1B");    // CUD 1  (down exactly one row)
+        printf("\033[2K");           /* clear this row          */
+        if (i < lines - 1) printf("\033[1B");   /* down one    */
     }
+    printf("\033[%dF", lines);       /* jump back to top        */
 
-    /* Jump back to the first line of the block */
-    printf("\033[%dF", lines);
-
-    const char *status = rr_started[rr_current] ?
-                         "RESUMED" : "STARTED";
+    const char *status = rr_started[rr_current] ? "RESUMED" : "STARTED";
     rr_started[rr_current] = true;
 
-    print_current_process_stats(rr_pids[rr_current], rr_current,
-        completed,            
-        remaining,           
-        status);
-
+    print_current_process_stats(rr_pids[rr_current],
+                                rr_current, done, remain, status);
     fflush(stdout);
 }
-
-/*Your MCP 4.0 must output the analyzed process information 
-for every child process each time the scheduler completes a cycle."*/
 
 /*need an array of bools to track which 
 processes have already exited, so the scheduler can skip over them.*/
 void round_robin(){
     signal(SIGALRM, signal_alarm);
-
+    //start with 1st process
     rr_current = 0;
+    //start 1st child process
     kill(rr_pids[rr_current], SIGCONT);
-    alarm(1);  // First slice
-
+    alarm(1); // Sets a timer that sends SIGALRM after 1 second
+    redraw_table(num_done, rr_alive);
+    //loop until all processes finish, while they are alive
     while (rr_alive > 0) {
-        pid_t done_pid = waitpid(-1, NULL, WNOHANG);
+        int status = 0;       
+        pid_t done_pid = waitpid(-1, &status, WNOHANG);
         if (done_pid > 0) {
+            //child has exited, marke it complete
             for (int i = 0; i < rr_num_procs; i++) {
                 if (rr_pids[i] == done_pid) {
                     rr_completed[i] = true;
-                    rr_alive--;
+                    rr_alive--; //derecement count of live processes
                     num_done++;
-                    should_redraw = 1;
+                    should_redraw = 1;    /* one more repaint       */
                     break;
                 }
             }
@@ -289,8 +276,9 @@ void round_robin(){
         if (should_redraw) {
             redraw_table(num_done, rr_alive);
             should_redraw = 0;
-    }
-        usleep(100000);  // 100ms delay
+        }
+        //improve amount of busy waiting
+        usleep(100000); // 10ms
     }
 }
 
@@ -305,31 +293,27 @@ void coordinate_children(pid_t* pids, int command_ctr) {
         const char *err = "malloc failed for rr_completed\n";
         write(2, err, strlen(err));
         exit(EXIT_FAILURE);
-    }
+    } 
     //initialize booleans all to false, True means process is completed
     for (int i = 0; i < command_ctr; i++) {
         rr_completed[i] = false;
     }
-    rr_started = malloc(sizeof(bool) * command_ctr);
+    rr_started = malloc(command_ctr * sizeof(bool));
     if (!rr_started) {
-        const char *err = "malloc failed for rr_started\n";
-        write(2, err, strlen(err));
+        perror("malloc rr_started");
         exit(EXIT_FAILURE);
     }
-    for (int i = 0; i < command_ctr; i++) {
-        rr_started[i] = false;
-    }
+    for (int i = 0; i < command_ctr; ++i)
+        rr_started[i] = false; 
     // All children are forked and waiting
     // send SIGUSR1 to all children
     send_signal_to_children(pids, command_ctr, SIGUSR1, "SIGUSR1");
 
     //sleep so that parent does not send SIGSTOP too early, before
     // the child is running the actual command
-    
     sleep(1);
 
     //pause the children with SIGSTOP
-    
     send_signal_to_children(pids, command_ctr, SIGSTOP, "SIGSTOP");
 
     // We do not resume all children at once anymore with a for loop
@@ -339,7 +323,6 @@ void coordinate_children(pid_t* pids, int command_ctr) {
     round_robin();
 
     // wait for all children to finish
-    
     for (int i = 0; i < command_ctr; i++){
         waitpid(pids[i], NULL, 0);
     }
@@ -349,6 +332,7 @@ void coordinate_children(pid_t* pids, int command_ctr) {
 }
 
 void free_mem(command_line* file_array, int command_ctr, pid_t* pids) {
+
     // Free each parsed command line
     for (int i = 0; i < command_ctr; i++) {
         free_command_line(&file_array[i]);
@@ -397,7 +381,6 @@ void launch_workload(const char *filename){
         } else if(pid > 0) {
             //parent process
             //printf("I am the parent process. The child had PID: %d\n", pid);
-          
         } else {
             const char *err = "fork fail\n";
             write(2, err, strlen(err)); 
@@ -418,5 +401,3 @@ int main(int argc, char const *argv[]){
     launch_workload(argv[1]);
     exit(EXIT_SUCCESS);
 }
-// notes:
-//fopen(/proc/pinnumber)
