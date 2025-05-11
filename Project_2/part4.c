@@ -231,8 +231,12 @@ void signal_alarm(int signum) {
 }
 
 void redraw_table(int completed, int remaining) {
-    printf("\033[2J\033[H");  // Clear screen and move cursor to top-left
-
+    int lines = 20;  // guess at table size
+    printf("\033[%dA", lines);  // Move up `lines` lines
+    for (int i = 0; i < lines; i++) {
+        printf("\033[K\n");     // Clear line and go to next
+    }
+    printf("\033[%dA", lines);  // Move back up to start
     const char* status = rr_started[rr_current] ? "RESUMED" : "STARTED";
     rr_started[rr_current] = true;
 
