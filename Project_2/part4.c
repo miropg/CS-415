@@ -195,7 +195,6 @@ void print_current_process_stats(pid_t pid, int proc_index, int completed, int r
 void send_signal_to_children(pid_t* pids, int count, int signal, const char* label) {
     for (int i = 0; i < count; i++) {
         kill(pids[i], signal);
-        printf("MCP sent %s to PID: %d\n", label, pids[i]);
     }
 }
 
@@ -208,8 +207,6 @@ void signal_alarm(int signum) {
     //     // context switching back onto itself over and over
     //     return; // skip everything below
     // }
-    
-    printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
     kill(rr_pids[rr_current], SIGSTOP); // Pause current process
 
     // find next alive process
@@ -218,7 +215,6 @@ void signal_alarm(int signum) {
         next = (next + 1) % rr_num_procs;
     }
     rr_current = next;
-    printf("MCP: Switching to PID %d\n", rr_pids[rr_current]);
     kill(rr_pids[rr_current], SIGCONT); // Resume next
     alarm(1); // Set up next time quantum
 }
@@ -226,7 +222,6 @@ void signal_alarm(int signum) {
 /*need an array of bools to track which 
 processes have already exited, so the scheduler can skip over them.*/
 void round_robin(){
-    printf("MCP: Starting Round Robin scheduling...\n");
     signal(SIGALRM, signal_alarm);
     //start with 1st process
     rr_current = 0;
@@ -245,7 +240,6 @@ void round_robin(){
                 if (rr_pids[i] == done_pid) {
                     rr_completed[i] = true;
                     rr_alive--; //derecement count of live processes
-                    printf("MCP: Process PID %d finished. Remaining: %d\n", done_pid, rr_alive);
                     break;
                 }
             }
@@ -257,10 +251,16 @@ void round_robin(){
         for (int i = 0; i < rr_num_procs; i++) {
             if (!rr_completed[i]) {
                 const char* status = (i == rr_current) ? "RUNNING" : "PAUSED";
-                print_current_process_stats(rr_pids[i], i, rr_num_procs - rr_alive, rr_alive, "RUNNING");
+                print_current_process_stats(rr_pids[i], i, rr_num_procs - rr_alive, rr_alive, status);
             }
         }      
         usleep(500000); // 50ms
+    }
+    system("clear");
+    for (int i = 0; i < rr_num_procs; i++) {
+        const char* status = "COMPLETED";
+        print_current_process_stats(rr_pids[i], i, rr_num_procs, 0, status);
+        printf("All Processes Complete");
     }
 }
 
@@ -282,16 +282,13 @@ void coordinate_children(pid_t* pids, int command_ctr) {
     }
     // All children are forked and waiting
     // send SIGUSR1 to all children
-    printf("\n=== MCP: Sending SIGUSR1 to all children ===\n");
     send_signal_to_children(pids, command_ctr, SIGUSR1, "SIGUSR1");
 
     //sleep so that parent does not send SIGSTOP too early, before
     // the child is running the actual command
-    printf("\n=== MCP: Sleeping briefly to let children begin workloads ===\n");
     sleep(1);
 
     //pause the children with SIGSTOP
-    printf("\n=== MCP: Sending SIGSTOP to all children ===\n");
     send_signal_to_children(pids, command_ctr, SIGSTOP, "SIGSTOP");
 
     // We do not resume all children at once anymore with a for loop
@@ -301,7 +298,6 @@ void coordinate_children(pid_t* pids, int command_ctr) {
     round_robin();
 
     // wait for all children to finish
-    printf("\n=== MCP: Waiting for all children to complete ===\n");
     for (int i = 0; i < command_ctr; i++){
         waitpid(pids[i], NULL, 0);
     }
@@ -310,7 +306,6 @@ void coordinate_children(pid_t* pids, int command_ctr) {
 }
 
 void free_mem(command_line* file_array, int command_ctr, pid_t* pids) {
-    printf("\n=== MCP: All child processes completed. Cleaning up. ===\n");
 
     // Free each parsed command line
     for (int i = 0; i < command_ctr; i++) {
@@ -335,7 +330,6 @@ void launch_workload(const char *filename){
         pids[i] = pid;
         if(pid == 0) {
             // PART 2 CODE HERE
-            printf("Child PID: %d waiting for SIGUSR1...\n", getpid());
 
             sigset_t sigset; //a data structure to hold set of signals
             sigemptyset(&sigset); //set signal set to empty
@@ -353,7 +347,6 @@ void launch_workload(const char *filename){
                 exit(EXIT_FAILURE);
             }
             //child process
-            printf("I am the child process. My PID: %d\n", getpid());
             execvp(file_array[i].command_list[0], file_array[i].command_list);
 
             const char *err = "execvp failed\n";
@@ -362,7 +355,6 @@ void launch_workload(const char *filename){
         } else if(pid > 0) {
             //parent process
             //printf("I am the parent process. The child had PID: %d\n", pid);
-            printf("MCP: Forked child PID %d for command: %s\n", pid, file_array[i].command_list[0]);
         } else {
             const char *err = "fork fail\n";
             write(2, err, strlen(err)); 
