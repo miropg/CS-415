@@ -240,27 +240,14 @@ void round_robin(){
                 if (rr_pids[i] == done_pid) {
                     rr_completed[i] = true;
                     rr_alive--; //derecement count of live processes
+                    system("clear");
+                    const char* status = (i == rr_current) ? "RUNNING" : "PAUSED";
+                    print_current_process_stats(rr_pids[i], i, rr_num_procs - rr_alive, rr_alive, status);
                     break;
                 }
             }
         }
-        if (rr_alive > 1) {
-            system("clear");
-        }
-        // Live update table for each process
-        for (int i = 0; i < rr_num_procs; i++) {
-            if (!rr_completed[i]) {
-                const char* status = (i == rr_current) ? "RUNNING" : "PAUSED";
-                print_current_process_stats(rr_pids[i], i, rr_num_procs - rr_alive, rr_alive, status);
-            }
-        }      
         usleep(500000); // 50ms
-    }
-    system("clear");
-    for (int i = 0; i < rr_num_procs; i++) {
-        const char* status = "COMPLETED";
-        print_current_process_stats(rr_pids[i], i, rr_num_procs, 0, status);
-        printf("All Processes Complete");
     }
 }
 
