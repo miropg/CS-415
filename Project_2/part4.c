@@ -120,8 +120,9 @@ void print_current_process_stats(pid_t pid, int proc_index, int completed, int r
     // === Read /proc/[pid]/stat ===
     snprintf(path, sizeof(path), "/proc/%d/stat", pid);
     FILE *fp_stat = fopen(path, "r");
-    if (!fp_stat) return;
-
+    if (!fp_stat){
+        return;
+    }
     int pid_read, priority, nice;
     char comm[256], state;
     unsigned long utime, stime;
@@ -132,17 +133,22 @@ void print_current_process_stats(pid_t pid, int proc_index, int completed, int r
         comm[strcspn(comm, ")")] = '\0';                     // remove closing ')'
     }
 
-    for (int i = 0; i < 10; i++) fscanf(fp_stat, "%*s");
-    fscanf(fp_stat, "%lu %lu", &utime, &stime);
-    for (int i = 0; i < 7; i++) fscanf(fp_stat, "%*s");
-    fscanf(fp_stat, "%*s %*s %d %d", &priority, &nice);  // priority and nice are fields 18 and 19
-    fclose(fp_stat);
+    for (int i = 0; i < 10; i++){
+        fscanf(fp_stat, "%*s");
+        fscanf(fp_stat, "%lu %lu", &utime, &stime);
+    }
 
+    for (int i = 0; i < 7; i++) {
+        fscanf(fp_stat, "%*s");
+        fscanf(fp_stat, "%*s %*s %d %d", &priority, &nice);  // priority and nice are fields 18 and 19
+        fclose(fp_stat);
+    }
     // === Read /proc/[pid]/status ===
     snprintf(path, sizeof(path), "/proc/%d/status", pid);
     FILE *fp_status = fopen(path, "r");
-    if (!fp_status) return;
-
+    if (!fp_status){
+        return;
+    }
     long vm_size = -1, vm_rss = -1;
     int voluntary_ctxt = -1, nonvoluntary_ctxt = -1, threads = -1;
     while (fgets(buffer, sizeof(buffer), fp_status)) {
@@ -240,14 +246,36 @@ void round_robin(){
                 if (rr_pids[i] == done_pid) {
                     rr_completed[i] = true;
                     rr_alive--; //derecement count of live processes
-                    system("clear");
-                    const char* status = (i == rr_current) ? "RUNNING" : "PAUSED";
-                    print_current_process_stats(rr_pids[i], i, rr_num_procs - rr_alive, rr_alive, status);
                     break;
                 }
             }
         }
-        usleep(500000); // 50ms
+        // Refresh table output every 0.5s while more than 1 process is alive
+    // Refresh table output every 0.5s while more than 1 process is alive
+        if (rr_alive > 1) {
+            system("clear");
+            for (int i = 0; i < rr_num_procs; i++) {
+                if (!rr_completed[i]) {
+                    const char* status = (i == rr_current) ? "RUNNING" : "PAUSED";
+                    print_current_process_stats(rr_pids[i], i, rr_num_procs - rr_alive, rr_alive, status);
+                }
+            }    
+            usleep(500000); // 50ms
+        }
+        else if (rr_alive == 1) {
+            // Clear and print the final process info once
+            system("clear");
+            for (int i = 0; i < rr_num_procs; i++) {
+                if (!rr_completed[i]) {
+                    print_current_process_stats(rr_pids[i], i, rr_num_procs - rr_alive, rr_alive, "RUNNING");
+                }
+            }
+
+            // Wait for that process to finish, but don't re-clear after
+            waitpid(-1, NULL, 0);
+            rr_alive--;
+            break;
+        }
     }
 }
 
