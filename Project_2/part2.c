@@ -202,7 +202,7 @@ void launch_workload(const char *filename){
             }
             printf("Child Process: %d - Received signal: SIGUSR1 - Calling exec().\n", getpid());
             //child process
-            printf("I am the child process. My PID: %d\n", getpid());
+            // printf("I am the child process. My PID: %d\n", getpid());
             execvp(file_array[i].command_list[0], file_array[i].command_list);
 
             const char *err = "execvp failed\n";

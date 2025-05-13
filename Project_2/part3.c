@@ -25,13 +25,6 @@ You are building a basic multitasking system now!
 5	Keep doing this until all workload processes finish.
 */
 
-//Round Robin Global Variables
-static pid_t* rr_pids = NULL;         // Global pointer to child PIDs
-static int rr_num_procs = 0;          // Total number of children
-static int rr_current = 0;            // Current process index
-static bool* rr_completed = NULL;     // tracks which children are done
-static int rr_alive = 0;              // number of children still alive
-
 void trim(char *str) {
     if (str == NULL){
         return;
@@ -114,13 +107,120 @@ pid_t* allocate_pid_array(int command_ctr) {
     return pids;
 }
 
-void send_signal_to_children(pid_t* pids, int count, int signal, const char* label) {
-    for (int i = 0; i < count; i++) {
+void signaler(pid_t* pids, int size, int signal) {
+    for (int i = 0; i < size; i++) {
+        // Sleep 3 seconds before signaling each child
+        // This simulates slow, staggered scheduling
+        sleep(3); // Lab: delay between signals
+        printf("Parent process: %d - Sending signal: %s to child process: %d\n",
+               getpid(), strsignal(signal), pids[i]);
+        // Send the specified signal to the current child
+        // kill(pid, signal) tells the OS to deliver 'signal' to 'pid'
         kill(pids[i], signal);
-        printf("MCP sent %s to PID: %d\n", label, pids[i]);
     }
 }
 
+//PART 3 CODE
+void coordinate_children(pid_t* pids, int command_ctr) {
+    printf("\n=== MCP: Sending SIGUSR1 to all children ===\n");
+    signaler(pids, command_ctr, SIGUSR1);  // Signal children to exec
+
+    // Optional pause to give time for exec to start
+    printf("\n=== MCP: Sleeping briefly to let children begin workloads ===\n");
+    sleep(1);
+
+    printf("\n=== MCP: Sending SIGSTOP to all children ===\n");
+    signaler(pids, command_ctr, SIGSTOP);  // Pause the processes
+
+    printf("\n=== MCP: Sending SIGCONT to all children ===\n");
+    signaler(pids, command_ctr, SIGCONT);  // Resume processes
+
+    printf("\n=== MCP: Sending SIGINT to all children ===\n");
+    signaler(pids, command_ctr, SIGINT);   // Gracefully kill the children
+
+    // Wait for all children to finish
+    printf("\n=== MCP: Waiting for all children to complete ===\n");
+    for (int i = 0; i < command_ctr; i++) {
+        waitpid(pids[i], NULL, 0);
+    }
+}
+
+void free_mem(command_line* file_array, int command_ctr, pid_t* pids) {
+    printf("\n=== MCP: All child processes completed. Cleaning up. ===\n");
+
+    // Free each parsed command line
+    for (int i = 0; i < command_ctr; i++) {
+        free_command_line(&file_array[i]);
+    }
+
+    // Free the array of command_line structs
+    free(file_array);
+
+    // Free the array of PIDs
+    free(pids);
+}
+
+void launch_workload(const char *filename){
+    int command_ctr = count_commands_in_file(filename);
+    command_line* file_array = read_commands_from_file(filename, command_ctr);
+    pid_t* pids = allocate_pid_array(command_ctr);
+
+    //fork children, assign commands to child executables
+    for(int i = 0; i < command_ctr; i++){
+        pid_t pid = fork();
+        pids[i] = pid;
+        if(pid == 0) {
+            // PART 2 CODE HERE
+            printf("Child Process: %d - Waiting for SIGUSR1...\n", getpid());
+
+            sigset_t sigset; //a data structure to hold set of signals
+            sigemptyset(&sigset); //set signal set to empty
+            //only respond to SIGUSR1 signal (only signal in set)
+            sigaddset(&sigset, SIGUSR1); 
+            int sig; //variable to store signal
+
+            // Block SIGUSR1 and wait for it to be delivered by the parent
+            //siprocmask(how, set, oldset)
+            //SIG_BLOCK: add these signals to my blocked list
+            sigprocmask(SIG_BLOCK, &sigset, NULL);
+            if (sigwait(&sigset, &sig) != 0) {
+                const char *err = "sigwait failed\n";
+                write(2, err, strlen(err));
+                exit(EXIT_FAILURE);
+            }
+            printf("Child Process: %d - Received signal: SIGUSR1 - Calling exec().\n", getpid());
+            //child process
+            printf("I am the child process. My PID: %d\n", getpid());
+            execvp(file_array[i].command_list[0], file_array[i].command_list);
+            
+            const char *err = "execvp failed\n";
+            write(2, err, strlen(err)); 
+            exit(EXIT_FAILURE);
+        } else if(pid > 0) {
+            //parent process
+            //printf("I am the parent process. The child had PID: %d\n", pid);
+            printf("MCP: Forked child PID %d for command: %s\n", pid, file_array[i].command_list[0]);
+        } else {
+            const char *err = "fork fail\n";
+            write(2, err, strlen(err)); 
+            exit(EXIT_FAILURE);
+        }
+    }
+    //PART 3 CODE
+    //rr_alive = command_ctr; //forked child processes still running for RR
+    coordinate_children(pids, command_ctr); 
+    free_mem(file_array, command_ctr, pids);
+}
+//MCP: Master Controller Process
+int main(int argc, char const *argv[]){
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <workload_file>\n", argv[0]);
+        return 1;
+    }
+    launch_workload(argv[1]);
+    exit(EXIT_SUCCESS);
+}
+/*
 //avoids infinite loops by scanning in a circular way and explicitly checks if we
 //  looped all the way back to the original process.
 
@@ -154,8 +254,8 @@ void signal_alarm(int signum) {
     alarm(1);
 }
 
-/*need an array of bools to track which 
-processes have already exited, so the scheduler can skip over them.*/
+//need an array of bools to track which 
+//processes have already exited, so the scheduler can skip over them.
 void round_robin(){
     printf("MCP: Starting Round Robin scheduling...\n");
 
@@ -193,125 +293,4 @@ void round_robin(){
         }
         sigwait(&sigset, &sig); //wait for next SIGALRM or SIGCHLD
     }
-}
-
-//PART 3 CODE
-//Implementing Round Robin
-void coordinate_children(pid_t* pids, int command_ctr) {
-    //round robin variables
-    rr_pids = pids;
-    rr_num_procs = command_ctr;
-    rr_completed = malloc(sizeof(bool) * command_ctr);
-    if (!rr_completed) {
-        const char *err = "malloc failed for rr_completed\n";
-        write(2, err, strlen(err));
-        exit(EXIT_FAILURE);
-    }
-    //initialize booleans all to false, True means process is completed
-    for (int i = 0; i < command_ctr; i++) {
-        rr_completed[i] = false;
-    }
-    // All children are forked and waiting
-    // send SIGUSR1 to all children
-    printf("\n=== MCP: Sending SIGUSR1 to all children ===\n");
-    send_signal_to_children(pids, command_ctr, SIGUSR1, "SIGUSR1");
-
-    //sleep so that parent does not send SIGSTOP too early, before
-    // the child is running the actual command
-    printf("\n=== MCP: Sleeping briefly to let children begin workloads ===\n");
-    // NOT part of scheduler timing
-    sleep(1);
-
-    //pause the children with SIGSTOP
-    printf("\n=== MCP: Sending SIGSTOP to all children ===\n");
-    send_signal_to_children(pids, command_ctr, SIGSTOP, "SIGSTOP");
-
-    // We do not resume all children at once anymore with a for loop
-    // printf("\n=== MCP: Sending SIGCONT to all children ===\n");
-    // send_signal_to_children(pids, command_ctr, SIGCONT, "SIGCONT");
-    // instead SCHEDULING
-    round_robin();
-
-    // wait for all children to finish
-    printf("\n=== MCP: Waiting for all children to complete ===\n");
-    for (int i = 0; i < command_ctr; i++){
-        waitpid(pids[i], NULL, 0);
-    }
-    //free boolean array keeping track of which processes have exited CPU
-    free(rr_completed);
-}
-
-void free_mem(command_line* file_array, int command_ctr, pid_t* pids) {
-    printf("\n=== MCP: All child processes completed. Cleaning up. ===\n");
-
-    // Free each parsed command line
-    for (int i = 0; i < command_ctr; i++) {
-        free_command_line(&file_array[i]);
-    }
-
-    // Free the array of command_line structs
-    free(file_array);
-
-    // Free the array of PIDs
-    free(pids);
-}
-
-void launch_workload(const char *filename){
-    int command_ctr = count_commands_in_file(filename);
-    command_line* file_array = read_commands_from_file(filename, command_ctr);
-    pid_t* pids = allocate_pid_array(command_ctr);
-
-    //fork children, assign commands to child executables
-    for(int i = 0; i < command_ctr; i++){
-        pid_t pid = fork();
-        pids[i] = pid;
-        if(pid == 0) {
-            // PART 2 CODE HERE
-            printf("Child PID: %d waiting for SIGUSR1...\n", getpid());
-
-            sigset_t sigset; //a data structure to hold set of signals
-            sigemptyset(&sigset); //set signal set to empty
-            //only respond to SIGUSR1 signal (only signal in set)
-            sigaddset(&sigset, SIGUSR1); 
-            int sig; //variable to store signal
-
-            // Block SIGUSR1 and wait for it to be delivered by the parent
-            //siprocmask(how, set, oldset)
-            //SIG_BLOCK: add these signals to my blocked list
-            sigprocmask(SIG_BLOCK, &sigset, NULL);
-            if (sigwait(&sigset, &sig) != 0) {
-                const char *err = "sigwait failed\n";
-                write(2, err, strlen(err));
-                exit(EXIT_FAILURE);
-            }
-            //child process
-            printf("I am the child process. My PID: %d\n", getpid());
-            execvp(file_array[i].command_list[0], file_array[i].command_list);
-            
-            const char *err = "execvp failed\n";
-            write(2, err, strlen(err)); 
-            exit(EXIT_FAILURE);
-        } else if(pid > 0) {
-            //parent process
-            //printf("I am the parent process. The child had PID: %d\n", pid);
-            printf("MCP: Forked child PID %d for command: %s\n", pid, file_array[i].command_list[0]);
-        } else {
-            const char *err = "fork fail\n";
-            write(2, err, strlen(err)); 
-            exit(EXIT_FAILURE);
-        }
-    }
-    //PART 3 CODE
-    rr_alive = command_ctr; //forked child processes still running for RR
-    coordinate_children(pids, command_ctr); 
-    free_mem(file_array, command_ctr, pids);
-}
-//MCP: Master Controller Process
-int main(int argc, char const *argv[]){
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <workload_file>\n", argv[0]);
-        return 1;
-    }
-    launch_workload(argv[1]);
-    exit(EXIT_SUCCESS);
 }
