@@ -158,6 +158,13 @@ void signal_alarm(int signum) {
 processes have already exited, so the scheduler can skip over them.*/
 void round_robin(){
     printf("MCP: Starting Round Robin scheduling...\n");
+
+    //for sigwait() to work
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGALRM);
+    int sig;
+
     signal(SIGALRM, signal_alarm);
     //start with 1st process
     rr_current = 0;
@@ -183,7 +190,7 @@ void round_robin(){
                 }
             }
         }
-        pause(); //wait for next SIGALRM or SIGCHLD
+        sigwait(); //wait for next SIGALRM or SIGCHLD
     }
 }
 
