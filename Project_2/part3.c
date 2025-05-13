@@ -125,22 +125,15 @@ void signal_alarm(int signum) {
     printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
     kill(rr_pids[rr_current], SIGSTOP); // Pause current process
 
-    // Find next non-completed process (circular scan)
-    int next = rr_current;
-    do {
+    // find next alive process
+    int next = (rr_current + 1) % rr_num_procs;
+    while (rr_completed[next]) {
         next = (next + 1) % rr_num_procs;
-    } while (rr_completed[next] && next != rr_current);
-
-    // Only continue a process if it's not completed
-    if (!rr_completed[next]) {
-        rr_current = next;
-        printf("MCP: Switching to PID %d\n", rr_pids[rr_current]);
-        kill(rr_pids[rr_current], SIGCONT); // Resume next
-        alarm(1); // Schedule next alarm
-    } else {
-        // No runnable processes found — don't restart timer
-        printf("MCP: No runnable processes remain to schedule.\n");
     }
+    rr_current = next;
+    printf("MCP: Switching to PID %d\n", rr_pids[rr_current]);
+    kill(rr_pids[rr_current], SIGCONT); // Resume next
+    alarm(1); // Set up next time quantum
 }
 
 /*need an array of bools to track which 
