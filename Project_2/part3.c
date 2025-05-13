@@ -122,18 +122,30 @@ void send_signal_to_children(pid_t* pids, int count, int signal, const char* lab
 }
 
 void signal_alarm(int signum) {
-    printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
-    kill(rr_pids[rr_current], SIGSTOP); // Pause current process
-
-    // find next alive process
-    int next = (rr_current + 1) % rr_num_procs;
-    while (rr_completed[next]) {
-        next = (next + 1) % rr_num_procs;
+    // Don't try to stop a process that already exited
+    if (rr_completed[rr_current]) {
+        printf("MCP: Current PID %d already completed. Skipping stop.\n", rr_pids[rr_current]);
+    } else {
+        printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
+        kill(rr_pids[rr_current], SIGSTOP); // Pause current process
     }
+
+    // Find next non-completed process
+    int next = rr_current;
+    do {
+        next = (next + 1) % rr_num_procs;
+    } while (rr_completed[next] && next != rr_current);
+
+    // If no other process is runnable, don't do anything
+    if (rr_completed[next]) {
+        printf("MCP: No runnable processes remain to schedule.\n");
+        return;
+    }
+
     rr_current = next;
     printf("MCP: Switching to PID %d\n", rr_pids[rr_current]);
     kill(rr_pids[rr_current], SIGCONT); // Resume next
-    alarm(1); // Set up next time quantum
+    alarm(1); // Schedule next alarm
 }
 
 /*need an array of bools to track which 
