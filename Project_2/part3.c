@@ -121,31 +121,37 @@ void send_signal_to_children(pid_t* pids, int count, int signal, const char* lab
     }
 }
 
+//avoids infinite loops by scanning in a circular way and explicitly checks if we
+//  looped all the way back to the original process.
+
+//safely handles the case where only one process is still running.
+
+//avoids rescheduling any process that’s already rr_completed[] = true.
 void signal_alarm(int signum) {
     // Don't try to stop a process that already exited
-    if (rr_completed[rr_current]) {
-        printf("MCP: Current PID %d already completed. Skipping stop.\n", rr_pids[rr_current]);
-    } else {
+    if (!rr_completed[rr_current]) {
         printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
-        kill(rr_pids[rr_current], SIGSTOP); // Pause current process
+        kill(rr_pids[rr_current], SIGSTOP);
+    } else {
+        printf("MCP: Current PID %d already completed. Skipping stop.\n", rr_pids[rr_current]);
     }
 
-    // Find next non-completed process
-    int next = rr_current;
-    do {
+    // Find next non-completed process (full circular scan)
+    int next = (rr_current + 1) % rr_num_procs;
+    while (next != rr_current && rr_completed[next]) {
         next = (next + 1) % rr_num_procs;
-    } while (rr_completed[next] && next != rr_current);
+    }
 
-    // If no other process is runnable, don't do anything
     if (rr_completed[next]) {
+        // Only one process was left and now it's done
         printf("MCP: No runnable processes remain to schedule.\n");
         return;
     }
 
     rr_current = next;
     printf("MCP: Switching to PID %d\n", rr_pids[rr_current]);
-    kill(rr_pids[rr_current], SIGCONT); // Resume next
-    alarm(1); // Schedule next alarm
+    kill(rr_pids[rr_current], SIGCONT);
+    alarm(1);
 }
 
 /*need an array of bools to track which 
