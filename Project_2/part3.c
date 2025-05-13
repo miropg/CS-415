@@ -122,27 +122,25 @@ void send_signal_to_children(pid_t* pids, int count, int signal, const char* lab
 }
 
 void signal_alarm(int signum) {
-    // code to try and let it finish the last one without resending signal
-    // did not work, just let it reschedule same process even if it wastes
-    // CPU time
-    // if (rr_alive == 1) {
-    //     // Only one process left, let it finish naturally instead of
-    //     // context switching back onto itself over and over
-    //     return; // skip everything below
-    // }
-    
     printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
     kill(rr_pids[rr_current], SIGSTOP); // Pause current process
 
-    // find next alive process
-    int next = (rr_current + 1) % rr_num_procs;
-    while (rr_completed[next]) {
+    // Find next non-completed process (circular scan)
+    int next = rr_current;
+    do {
         next = (next + 1) % rr_num_procs;
+    } while (rr_completed[next] && next != rr_current);
+
+    // Only continue a process if it's not completed
+    if (!rr_completed[next]) {
+        rr_current = next;
+        printf("MCP: Switching to PID %d\n", rr_pids[rr_current]);
+        kill(rr_pids[rr_current], SIGCONT); // Resume next
+        alarm(1); // Schedule next alarm
+    } else {
+        // No runnable processes found — don't restart timer
+        printf("MCP: No runnable processes remain to schedule.\n");
     }
-    rr_current = next;
-    printf("MCP: Switching to PID %d\n", rr_pids[rr_current]);
-    kill(rr_pids[rr_current], SIGCONT); // Resume next
-    alarm(1); // Set up next time quantum
 }
 
 /*need an array of bools to track which 
@@ -161,7 +159,9 @@ void round_robin(){
         int status;
         // 
         pid_t done_pid = waitpid(-1, &status, WNOHANG);
-        if (done_pid > 0) {
+        //Wifeexited Identifies a child that has exited normally
+        //(not stopped or killed by a signal)
+        if (done_pid > 0 && WIFEXITED(status)) {
             //child has exited, marke it complete
             for (int i = 0; i < rr_num_procs; i++) {
                 if (rr_pids[i] == done_pid) {
@@ -172,8 +172,7 @@ void round_robin(){
                 }
             }
         }
-        //improve amount of busy waiting
-        usleep(100000); // 10ms
+        pause(); //wait for next SIGALRM or SIGCHLD
     }
 }
 
@@ -201,6 +200,7 @@ void coordinate_children(pid_t* pids, int command_ctr) {
     //sleep so that parent does not send SIGSTOP too early, before
     // the child is running the actual command
     printf("\n=== MCP: Sleeping briefly to let children begin workloads ===\n");
+    // NOT part of scheduler timing
     sleep(1);
 
     //pause the children with SIGSTOP
@@ -268,7 +268,7 @@ void launch_workload(const char *filename){
             //child process
             printf("I am the child process. My PID: %d\n", getpid());
             execvp(file_array[i].command_list[0], file_array[i].command_list);
-
+            
             const char *err = "execvp failed\n";
             write(2, err, strlen(err)); 
             exit(EXIT_FAILURE);

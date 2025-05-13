@@ -114,88 +114,50 @@ pid_t* allocate_pid_array(int command_ctr) {
     return pids;
 }
 
+void print_table_header() {
+    printf("PID   | Program    | Status   | CPU Time   | VM Size | RSS\n");
+    printf("------|------------|----------|------------|---------|--------\n");
+}
+
 void print_current_process_stats(pid_t pid, int proc_index, int completed, int remaining, const char* mcp_status) {
     char path[64], buffer[1024];
 
     // === Read /proc/[pid]/stat ===
     snprintf(path, sizeof(path), "/proc/%d/stat", pid);
     FILE *fp_stat = fopen(path, "r");
-    if (!fp_stat){
-        return;
-    }
-    int pid_read, priority, nice;
+    if (!fp_stat) return;
+
+    int pid_read;
     char comm[256], state;
     unsigned long utime, stime;
     fscanf(fp_stat, "%d %s %c", &pid_read, comm, &state);
 
     if (comm[0] == '(') {
-        memmove(comm, comm + 1, strlen(comm));               // remove opening '('
-        comm[strcspn(comm, ")")] = '\0';                     // remove closing ')'
+        memmove(comm, comm + 1, strlen(comm));
+        comm[strcspn(comm, ")")] = '\0';
     }
 
-    for (int i = 0; i < 10; i++){
-        fscanf(fp_stat, "%*s");
-        fscanf(fp_stat, "%lu %lu", &utime, &stime);
-    }
+    for (int i = 0; i < 10; i++) fscanf(fp_stat, "%*s");
+    fscanf(fp_stat, "%lu %lu", &utime, &stime);
+    fclose(fp_stat);
 
-    for (int i = 0; i < 7; i++) {
-        fscanf(fp_stat, "%*s");
-        fscanf(fp_stat, "%*s %*s %d %d", &priority, &nice);  // priority and nice are fields 18 and 19
-        fclose(fp_stat);
-    }
     // === Read /proc/[pid]/status ===
     snprintf(path, sizeof(path), "/proc/%d/status", pid);
     FILE *fp_status = fopen(path, "r");
-    if (!fp_status){
-        return;
-    }
+    if (!fp_status) return;
+
     long vm_size = -1, vm_rss = -1;
-    int voluntary_ctxt = -1, nonvoluntary_ctxt = -1, threads = -1;
     while (fgets(buffer, sizeof(buffer), fp_status)) {
         sscanf(buffer, "VmSize: %ld", &vm_size);
         sscanf(buffer, "VmRSS: %ld", &vm_rss);
-        sscanf(buffer, "Threads: %d", &threads);
-        sscanf(buffer, "voluntary_ctxt_switches: %d", &voluntary_ctxt);
-        sscanf(buffer, "nonvoluntary_ctxt_switches: %d", &nonvoluntary_ctxt);
     }
     fclose(fp_status);
 
-    // === Read /proc/[pid]/sched ===
-    snprintf(path, sizeof(path), "/proc/%d/sched", pid);
-    FILE *fp_sched = fopen(path, "r");
-    long cpu_util_ns = -1, cpu_runnable_ns = -1;
-    if (fp_sched) {
-        while (fgets(buffer, sizeof(buffer), fp_sched)) {
-            sscanf(buffer, "se.sum_exec_runtime %ld", &cpu_util_ns);
-            sscanf(buffer, "se.statistics.run_delay %ld", &cpu_runnable_ns);
-        }
-        fclose(fp_sched);
-    }
-
-    // === Format ===
     double total_cpu_seconds = (utime + stime) / (double)sysconf(_SC_CLK_TCK);
 
-    printf("\n*********************************************\n");
-    printf("* Program name:           %-15s\n", comm);
-    printf("* Process ID:             %d\n", pid);
-    printf("* Process Number:         %d\n", proc_index);
-    printf("* MCP Status:             %s\n", mcp_status);
-    printf("* Virtual Memory Usage:   %ld kB\n", vm_size);
-    printf("* Physical Memory Usage:  %ld kB\n", vm_rss);
-    printf("* Threads:                %d\n", threads);
-    printf("* Voluntary Context Switches:     %d\n", voluntary_ctxt);
-    printf("* Nonvoluntary Context Switches:  %d\n", nonvoluntary_ctxt);
-    printf("* User time:              %.2f\n", utime / (double)sysconf(_SC_CLK_TCK));
-    printf("* Kernel time:            %.2f\n", stime / (double)sysconf(_SC_CLK_TCK));
-    printf("* Priority:               %d\n", priority);
-    printf("* Nice level:             %d\n", nice);
-    printf("* Total CPU Seconds:      %.6f\n", total_cpu_seconds);
-    printf("* CPU Utilization Nanoseconds:  %ld\n", cpu_util_ns);
-    printf("* CPU Runnable Nanoseconds:     %ld\n", cpu_runnable_ns);
-    printf("* -------------------------------\n");
-    printf("* Processes Complete:     %d\n", completed);
-    printf("* Processes Remaining:    %d\n", remaining);
-    printf("*********************************************\n\n");
+    // === Print as row ===
+    printf("%-5d | %-10s | %-8s | CPU: %6.2f sec | Mem: %6ld kB | RSS: %6ld kB\n",
+           pid, comm, mcp_status, total_cpu_seconds, vm_size, vm_rss);
 }
 
 void send_signal_to_children(pid_t* pids, int count, int signal, const char* label) {
@@ -205,24 +167,25 @@ void send_signal_to_children(pid_t* pids, int count, int signal, const char* lab
 }
 
 void signal_alarm(int signum) {
-    // code to try and let it finish the last one without resending signal
-    // did not work, just let it reschedule same process even if it wastes
-    // CPU time
-    // if (rr_alive == 1) {
-    //     // Only one process left, let it finish naturally instead of
-    //     // context switching back onto itself over and over
-    //     return; // skip everything below
-    // }
+    printf("MCP: Time slice expired. Stopping PID %d\n", rr_pids[rr_current]);
     kill(rr_pids[rr_current], SIGSTOP); // Pause current process
 
-    // find next alive process
-    int next = (rr_current + 1) % rr_num_procs;
-    while (rr_completed[next]) {
+    // Find next non-completed process (circular scan)
+    int next = rr_current;
+    do {
         next = (next + 1) % rr_num_procs;
+    } while (rr_completed[next] && next != rr_current);
+
+    // Only continue a process if it's not completed
+    if (!rr_completed[next]) {
+        rr_current = next;
+        printf("MCP: Switching to PID %d\n", rr_pids[rr_current]);
+        kill(rr_pids[rr_current], SIGCONT); // Resume next
+        alarm(1); // Schedule next alarm
+    } else {
+        // No runnable processes found — don't restart timer
+        printf("MCP: No runnable processes remain to schedule.\n");
     }
-    rr_current = next;
-    kill(rr_pids[rr_current], SIGCONT); // Resume next
-    alarm(1); // Set up next time quantum
 }
 
 /*need an array of bools to track which 
@@ -238,9 +201,8 @@ void round_robin(){
     //loop until all processes finish, while they are alive
     while (rr_alive > 0) {
         int status;
-        // 
         pid_t done_pid = waitpid(-1, &status, WNOHANG);
-        if (done_pid > 0) {
+        if (done_pid > 0 && WIFEXITED(status)) {
             //child has exited, marke it complete
             for (int i = 0; i < rr_num_procs; i++) {
                 if (rr_pids[i] == done_pid) {
@@ -250,32 +212,15 @@ void round_robin(){
                 }
             }
         }
-        // Refresh table output every 0.5s while more than 1 process is alive
-    // Refresh table output every 0.5s while more than 1 process is alive
-        if (rr_alive > 1) {
-            system("clear");
-            for (int i = 0; i < rr_num_procs; i++) {
-                if (!rr_completed[i]) {
-                    const char* status = (i == rr_current) ? "RUNNING" : "PAUSED";
-                    print_current_process_stats(rr_pids[i], i, rr_num_procs - rr_alive, rr_alive, status);
-                }
-            }    
-            usleep(500000); // 50ms
-        }
-        else if (rr_alive == 1) {
-            // Clear and print the final process info once
-            system("clear");
-            for (int i = 0; i < rr_num_procs; i++) {
-                if (!rr_completed[i]) {
-                    print_current_process_stats(rr_pids[i], i, rr_num_procs - rr_alive, rr_alive, "RUNNING");
-                }
+        //system("clear");
+        print_table_header();
+        for (int i = 0; i < rr_num_procs; i++) {
+            if (!rr_completed[i]) {
+                const char* status = (i == rr_current) ? "RUNNING" : "PAUSED";
+                print_current_process_stats(rr_pids[i], i, rr_num_procs - rr_alive, rr_alive, status);
             }
-
-            // Wait for that process to finish, but don't re-clear after
-            waitpid(-1, NULL, 0);
-            rr_alive--;
-            break;
-        }
+        } 
+        pause();
     }
 }
 
