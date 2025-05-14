@@ -162,6 +162,16 @@ command_line* read_commands_from_file(const char *filename, int command_ctr) {
     return file_array;
 }
 
+pid_t* allocate_pid_array(int command_ctr) {
+    pid_t* pids = malloc(sizeof(pid_t) * command_ctr);
+    if (!pids) {
+        const char *err = "malloc failed\n";
+        write(2, err, strlen(err));
+        exit(EXIT_FAILURE);
+    }
+    return pids;
+}
+
 void alarm_handler(int sig) {
     // PREEMPTION PHASE
     // 1. The MCP will suspend the currently running workload process using SIGSTOP.
@@ -246,24 +256,26 @@ void free_mem(command_line* file_array, int command_ctr) {
 void launch_workload(const char *filename){
     int command_ctr = count_commands_in_file(filename);
     command_line* file_array = read_commands_from_file(filename, command_ctr);
-    // pid_t* pids = allocate_pid_array(command_ctr);
+    pid_t* pids = allocate_pid_array(command_ctr);
 
     init_queue(&queue); //need for queue to work?
 
     //fork children, assign commands to child executables
     for(int i = 0; i < command_ctr; i++){
+        sigset_t sigset; //a data structure to hold set of signals
+        sigemptyset(&sigset); //set signal set to empty
+        sigaddset(&sigset, SIGUSR1); //only respond to SIGUSR1 signal (only signal in set)
+        sigprocmask(SIG_BLOCK, &sigset, NULL);
+        int sig; //variable to store signal
+            
         pid_t pid = fork();
+        pids[i] = pid;
         if (pid < 0){
 			fprintf(stderr, "fork failed\n");
 			exit(-1);
 		}
         else if(pid == 0) {
             //printf("Child Process: %d - Waiting for SIGUSR1...\n", getpid());
-            sigset_t sigset; //a data structure to hold set of signals
-            sigemptyset(&sigset); //set signal set to empty
-            sigaddset(&sigset, SIGUSR1); //only respond to SIGUSR1 signal (only signal in set)
-            sigprocmask(SIG_BLOCK, &sigset, NULL);
-            int sig; //variable to store signal
             
             printf("CHILD WAITING ON %d SIGUSR1 SIGNAL...\n", getpid());
 			if (sigwait(&sigset, &sig) != 0) {
@@ -273,16 +285,14 @@ void launch_workload(const char *filename){
 			execvp(file_array[i].command_list[0], file_array[i].command_list);
             perror("execvp failed");
             exit(EXIT_FAILURE);
-        } 
-        else {
-            // pids[i] = pid;  //do we need?
-            // rr_done[i] = 0;
-            printf("MCP: Forked child PID %d for command: %s\n", pid, file_array[i].command_list[0]);
-            //1st command in input should be 1st command in queue
-            enqueue(&queue, pid);
-            
-        }
+        }        
     } 
+    for(int i = 0; < command_ctr; i++){
+        printf("MCP: Forke{d child PID %d for command: %s\n", pid, file_array[i].command_list[0]);
+        //1st command in input should be 1st command in queue
+        enqueue(&queue, pids[i]); 
+    }
+         
     print_queue(&queue);
     run_scheduler(file_array, command_ctr);
     print_queue(&queue);
