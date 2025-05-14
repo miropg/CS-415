@@ -178,6 +178,8 @@ void alarm_handler(int sig) {
     
     if (pid_running != 0 || finished < 0) {
         // Process finished — don't requeue
+        printf(pid_running);
+        printf(finished);
         printf("Process %d exited.\n", current_process);
     } else {
         // Still running — requeue it
