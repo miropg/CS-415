@@ -212,8 +212,6 @@ void alarm_handler(int sig) {
     // 1. The MCP will suspend the currently running workload process using SIGSTOP.
     //if current proess has not finished yet...
     int finished = kill(current_process, SIGSTOP);
-
-    printf("ALARM WENT OFF. PARENT SENDING SIGSTOP SIGNAL...\n");
         // send SIGSTOP to pause the currently running child process
         // simulating a "preemption" -stopping process so another can run
     // int status; // check if process exited...
@@ -223,13 +221,9 @@ void alarm_handler(int sig) {
     
     if (pid_running != 0 || finished < 0) {
         // Process finished — don't requeue
-        printf("pid running: %d", pid_running);
-        printf("finished: %d", finished);
-        printf("Process %d exited.\n", current_process);
     } else {
         // Still running — requeue it
         enqueue(&queue, current_process);
-        printf("Process %d re-enqueued.\n", current_process);
     }
     print_table_header();
     for (int i = 0; i < queue.size; i++) {
@@ -240,7 +234,6 @@ void alarm_handler(int sig) {
     // 2. Decide on the next process to run
     if (!is_empty(&queue)) {
         current_process = dequeue(&queue);
-        printf("Switching to PID %d\n", current_process);
         kill(current_process, SIGCONT);  // Resume next process
         // 3. Reset the alarm for the next time slice
         alarm(1);
@@ -276,11 +269,9 @@ void run_scheduler(command_line* file_array, int command_ctr){
             exited++;
         }
     }
-    printf("All children have exited queue.\n");
 }
 
 void free_mem(command_line* file_array, int command_ctr,  pid_t* pids) {
-    printf("\n=== MCP: All child processes completed. Cleaning up. ===\n");
 
     // Free each parsed command line
     for (int i = 0; i < command_ctr; i++) {
@@ -318,7 +309,6 @@ void launch_workload(const char *filename){
         else if(pid == 0) {
             //printf("Child Process: %d - Waiting for SIGUSR1...\n", getpid());
             
-            printf("CHILD WAITING ON %d SIGUSR1 SIGNAL...\n", getpid());
 			if (sigwait(&sigset, &sig) != 0) {
                 perror("sigwait failed");
                 exit(EXIT_FAILURE);
@@ -329,7 +319,6 @@ void launch_workload(const char *filename){
         }        
     } 
     for(int i = 0; i < command_ctr; i++){
-        printf("MCP: Forked child PID %d for command: %s\n", pids[i], file_array[i].command_list[0]);
         //1st command in input should be 1st command in queue
         enqueue(&queue, pids[i]); 
     }
