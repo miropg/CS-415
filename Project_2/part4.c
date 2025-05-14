@@ -199,7 +199,7 @@ void print_process_status(pid_t pid, pid_t current_pid) {
     fclose(fp);
     const char *running_marker = (pid == current_pid) ? "<-- RUNNING" : "";
     printf("%-8d| %-16s| %-12ld| %-11ld| %4d / %4d\n",
-           pid, state, vm_size, vm_rss, voluntary_ctxt, nonvoluntary_ctxt);
+           pid, state, vm_size, vm_rss, voluntary_ctxt, nonvoluntary_ctxt, running_marker);
 }
 
 void alarm_handler(int sig) {
