@@ -2,5 +2,5 @@ ls -a -r -s
 sleep 1
 invalid name
 ./iobound -seconds 10
-sleep 3
+sleep 4
 ./cpubound -seconds 10
