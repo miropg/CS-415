@@ -296,7 +296,7 @@ void launch_workload(const char *filename){
     print_queue(&queue);
     run_scheduler(file_array, command_ctr);
     print_queue(&queue);
-    free_mem(file_array, command_ctr);
+    free_mem(file_array, command_ctr, pids);
 }
 //MCP: Master Controller Process
 int main(int argc, char const *argv[]){
