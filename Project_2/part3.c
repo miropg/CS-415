@@ -148,33 +148,29 @@ void alarm_handler(int sig) {
     // PREEMPTION PHASE
     // 1. The MCP will suspend the currently running workload process using SIGSTOP.
     //if current proess has not finished yet...
-    if (!rr_done[current_process]) {
-        printf("ALARM WENT OFF. PARENT SENDING SIGSTOP SIGNAL...\n");
-		printf("[%d] - ALARM SIG NUM: %d\n", sig, SIGALRM);
+    kill(current_process, SIGSTOP);
+    printf("ALARM WENT OFF. PARENT SENDING SIGSTOP SIGNAL...\n");
+	printf("[%d] - ALARM SIG NUM: %d\n", sig, SIGALRM);
         // send SIGSTOP to pause the currently running child process
         // simulating a "preemption" -stopping process so another can run
-        kill(current_process, SIGSTOP);
-        
-        
-        int status; // check if process exited...
-        pid_t result = waitpid(current_process, &status, WNOHANG); // check cont.
-        if (result > 0 && WIFEXITED(status)) {
-            // Process finished — don't requeue
-            printf("Process %d exited.\n", current_process);
-        } else {
-            // Still running — requeue it
-            enqueue(&queue, current_process);
-            printf("Process %d re-enqueued.\n", current_process);
-        }
-         // 2. Decide on the next process to run
-        if (!is_empty(&queue)) {
-            current_process = dequeue(&queue);
-            printf("Switching to PID %d\n", current_process);
-            kill(current_process, SIGCONT);  // Resume next process
-
-            // 3. Reset the alarm for the next time slice
-            alarm(1);
-        }
+       
+    int status; // check if process exited...
+    pid_t result = waitpid(current_process, &status, WNOHANG); // check cont.
+    if (result > 0 && WIFEXITED(status)) {
+        // Process finished — don't requeue
+        printf("Process %d exited.\n", current_process);
+    } else {
+        // Still running — requeue it
+        enqueue(&queue, current_process);
+        printf("Process %d re-enqueued.\n", current_process);
+    }
+    // 2. Decide on the next process to run
+    if (!is_empty(&queue)) {
+        current_process = dequeue(&queue);
+        printf("Switching to PID %d\n", current_process);
+        kill(current_process, SIGCONT);  // Resume next process
+        // 3. Reset the alarm for the next time slice
+        alarm(1);
     }   
 }
 
@@ -206,7 +202,7 @@ void run_scheduler(command_line* file_array, int command_ctr){
     printf("All children have exited queue.\n");
 }
 
-void free_mem(command_line* file_array, int command_ctr, pid_t* pids) {
+void free_mem(command_line* file_array, int command_ctr) {
     printf("\n=== MCP: All child processes completed. Cleaning up. ===\n");
 
     // Free each parsed command line
@@ -218,7 +214,7 @@ void free_mem(command_line* file_array, int command_ctr, pid_t* pids) {
     free(file_array);
 
     // Free the array of PIDs
-    free(pids);
+    // free(pids);
 }
 
 void launch_workload(const char *filename){
@@ -261,7 +257,7 @@ void launch_workload(const char *filename){
         }
     } 
     run_scheduler(file_array, command_ctr);
-    free_mem(file_array, command_ctr, pids);
+    free_mem(file_array, command_ctr);
 }
 //MCP: Master Controller Process
 int main(int argc, char const *argv[]){
