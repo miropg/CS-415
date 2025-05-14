@@ -151,16 +151,17 @@ void alarm_handler(int sig) {
     //if current proess has not finished yet...
     kill(current_process, SIGSTOP);
     printf("ALARM WENT OFF. PARENT SENDING SIGSTOP SIGNAL...\n");
-	printf("[%d] - ALARM SIG NUM: %d\n", sig, SIGALRM);
         // send SIGSTOP to pause the currently running child process
         // simulating a "preemption" -stopping process so another can run
        
 
 
     int status; // check if process exited...
-    pid_t result = waitpid(current_process, &status, WNOHANG); // check cont.
+    int pid_running = kill(current_process, 0);
     
-    if (WIFEXITED(status)) {
+    // pid_t result = waitpid(current_process, &status, WNOHANG); // check cont.
+    
+    if (pid_running != 0) {
         // Process finished — don't requeue
         printf("Process %d exited.\n", current_process);
     } else {
