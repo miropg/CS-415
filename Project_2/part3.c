@@ -287,8 +287,8 @@ void launch_workload(const char *filename){
             exit(EXIT_FAILURE);
         }        
     } 
-    for(int i = 0; < command_ctr; i++){
-        printf("MCP: Forke{d child PID %d for command: %s\n", pid, file_array[i].command_list[0]);
+    for(int i = 0; i < command_ctr; i++){
+        printf("MCP: Forked child PID %d for command: %s\n", pids[i], file_array[i].command_list[0]);
         //1st command in input should be 1st command in queue
         enqueue(&queue, pids[i]); 
     }
