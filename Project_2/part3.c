@@ -66,6 +66,23 @@ pid_t dequeue(Queue* q) {
     return pid;
 }
 
+void print_queue(Queue* q) {
+    if (is_empty(q)) {
+        printf("Queue is empty.\n");
+        return;
+    }
+
+    printf("Queue contents [front to rear]: ");
+    int count = q->size;
+    int index = q->front;
+    while (count > 0) {
+        printf("%d ", q->data[index]);
+        index = (index + 1) % NUM_MAX;
+        count--;
+    }
+    printf("\n");
+}
+
 Queue queue;
 pid_t current_process; 
 //int current_process = 0 //index of current active child (on CPU)
@@ -261,9 +278,12 @@ void launch_workload(const char *filename){
             printf("MCP: Forked child PID %d for command: %s\n", pid, file_array[i].command_list[0]);
             //1st command in input should be 1st command in queue
             enqueue(&queue, pid);
+            
         }
     } 
+    print_queue(&queue);
     run_scheduler(file_array, command_ctr);
+    print_queue(&queue);
     free_mem(file_array, command_ctr);
 }
 //MCP: Master Controller Process
