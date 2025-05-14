@@ -65,8 +65,9 @@ pid_t dequeue(Queue* q) {
     q->size--;
     return pid;
 }
-Queue queue;
 
+Queue queue;
+pid_t current_process; 
 //int current_process = 0 //index of current active child (on CPU)
 // int pids[NUM_MAX]; // I don't know if we need this, we have false array already
 // bool rr_done[NUM_MAX] = { false };
