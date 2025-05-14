@@ -181,7 +181,7 @@ void alarm_handler(int sig) {
     printf("ALARM WENT OFF. PARENT SENDING SIGSTOP SIGNAL...\n");
         // send SIGSTOP to pause the currently running child process
         // simulating a "preemption" -stopping process so another can run
-    int status; // check if process exited...
+    // int status; // check if process exited...
     int pid_running = kill(current_process, 0);
     
     // pid_t result = waitpid(current_process, &status, WNOHANG); // check cont.
@@ -238,7 +238,7 @@ void run_scheduler(command_line* file_array, int command_ctr){
     printf("All children have exited queue.\n");
 }
 
-void free_mem(command_line* file_array, int command_ctr) {
+void free_mem(command_line* file_array, int command_ctr,  pid_t* pids) {
     printf("\n=== MCP: All child processes completed. Cleaning up. ===\n");
 
     // Free each parsed command line
