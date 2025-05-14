@@ -184,6 +184,10 @@ void run_scheduler(command_line* file_array, int command_ctr){
     for (int i = 0; i < command_ctr; i++) {
         kill(queue.data[i], SIGUSR1);  // Trigger child to start
     }	
+
+    for (int i = 0; i < command_ctr; i++) {
+        kill(queue.data[i], SIGSTOP);  // Freeze them until we send SIGCONT
+    }
     // PUT the PROCESSES ON THE CPU
     // Step 2: Begin scheduling — start the first process by dequeuing it and sending SIGCONT.
     current_process = dequeue(&queue); //get 1st process to run
