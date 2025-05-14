@@ -149,19 +149,17 @@ void alarm_handler(int sig) {
     // PREEMPTION PHASE
     // 1. The MCP will suspend the currently running workload process using SIGSTOP.
     //if current proess has not finished yet...
-    kill(current_process, SIGSTOP);
+    int finished = kill(current_process, SIGSTOP);
+
     printf("ALARM WENT OFF. PARENT SENDING SIGSTOP SIGNAL...\n");
         // send SIGSTOP to pause the currently running child process
         // simulating a "preemption" -stopping process so another can run
-       
-
-
     int status; // check if process exited...
     int pid_running = kill(current_process, 0);
     
     // pid_t result = waitpid(current_process, &status, WNOHANG); // check cont.
     
-    if (pid_running != 0) {
+    if (pid_running != 0 || finished < 0) {
         // Process finished — don't requeue
         printf("Process %d exited.\n", current_process);
     } else {
@@ -192,7 +190,6 @@ void run_scheduler(command_line* file_array, int command_ctr){
     for (int i = 0; i < command_ctr; i++) {
         kill(queue.data[i], SIGSTOP);  // Freeze them until we send SIGCONT
     }
-    
     // PUT the PROCESSES ON THE CPU
     // Step 2: Begin scheduling — start the first process by dequeuing it and sending SIGCONT.
     current_process = dequeue(&queue); //get 1st process to run
