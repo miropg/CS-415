@@ -155,9 +155,12 @@ void alarm_handler(int sig) {
         // send SIGSTOP to pause the currently running child process
         // simulating a "preemption" -stopping process so another can run
        
+
+
     int status; // check if process exited...
     pid_t result = waitpid(current_process, &status, WNOHANG); // check cont.
-    if (result > 0 && WIFEXITED(status)) {
+    
+    if (WIFEXITED(status)) {
         // Process finished — don't requeue
         printf("Process %d exited.\n", current_process);
     } else {
@@ -188,6 +191,7 @@ void run_scheduler(command_line* file_array, int command_ctr){
     for (int i = 0; i < command_ctr; i++) {
         kill(queue.data[i], SIGSTOP);  // Freeze them until we send SIGCONT
     }
+    
     // PUT the PROCESSES ON THE CPU
     // Step 2: Begin scheduling — start the first process by dequeuing it and sending SIGCONT.
     current_process = dequeue(&queue); //get 1st process to run

@@ -122,7 +122,6 @@ void signaler(pid_t* pids, int size, int signal) {
     for (int i = 0; i < size; i++) {
         // Sleep 3 seconds before signaling each child
         // This simulates slow, staggered scheduling
-        sleep(3); // Lab: delay between signals
         printf("Parent process: %d - Sending signal: %s to child process: %d\n",
                getpid(), strsignal(signal), pids[i]);
         // Send the specified signal to the current child
@@ -138,13 +137,12 @@ void coordinate_children(pid_t* pids, int command_ctr) {
     // Optional pause to give time for exec to start
     printf("\n=== MCP: Sleeping briefly to let children begin workloads ===\n");
     sleep(1);
-
     printf("\n=== MCP: Sending SIGSTOP to all children ===\n");
     signaler(pids, command_ctr, SIGSTOP);  // Pause the processes
-
+    sleep(1);
     printf("\n=== MCP: Sending SIGCONT to all children ===\n");
     signaler(pids, command_ctr, SIGCONT);  // Resume processes
-
+    sleep(1);
     printf("\n=== MCP: Sending SIGINT to all children ===\n");
     signaler(pids, command_ctr, SIGINT);   // Gracefully kill the children
 
