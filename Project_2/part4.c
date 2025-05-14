@@ -172,7 +172,7 @@ void print_table_header() {
     printf("--------|-----------------|-------------|------------|--------------------------\n");
 }
 
-void print_process_status(pid_t pid) {
+void print_process_status(pid_t pid, pid_t current_pid) {
     char path[64], line[256];
     sprintf(path, "/proc/%d/status", pid);
 
@@ -197,7 +197,7 @@ void print_process_status(pid_t pid) {
         }
     }
     fclose(fp);
-
+    const char *running_marker = (pid == current_pid) ? "<-- RUNNING" : "";
     printf("%-8d| %-16s| %-12ld| %-11ld| %4d / %4d\n",
            pid, state, vm_size, vm_rss, voluntary_ctxt, nonvoluntary_ctxt);
 }
@@ -224,7 +224,7 @@ void alarm_handler(int sig) {
     for (int i = 0; i < queue.size; i++) {
         int index = (queue.front + i) % NUM_MAX;
         pid_t pid = queue.data[index];
-        print_process_status(pid);
+        print_process_status(pid, current_process);
     }
     // 2. Decide on the next process to run
     if (!is_empty(&queue)) {
