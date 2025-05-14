@@ -68,19 +68,14 @@ pid_t dequeue(Queue* q) {
 
 void print_queue(Queue* q) {
     if (is_empty(q)) {
-        printf("Queue is empty.\n");
         return;
     }
-
-    printf("Queue contents [front to rear]: ");
     int count = q->size;
     int index = q->front;
     while (count > 0) {
-        printf("%d ", q->data[index]);
         index = (index + 1) % NUM_MAX;
         count--;
     }
-    printf("\n");
 }
 
 Queue queue;
@@ -313,6 +308,13 @@ void launch_workload(const char *filename){
                 perror("sigwait failed");
                 exit(EXIT_FAILURE);
             }
+            // === SUPPRESS LS === 
+            int null_fd = open("/dev/null", O_WRONLY);
+            if (null_fd != -1) {
+                dup2(null_fd, STDOUT_FILENO);
+                dup2(null_fd, STDERR_FILENO);
+                close(null_fd);
+            }
 			execvp(file_array[i].command_list[0], file_array[i].command_list);
             perror("execvp failed");
             exit(EXIT_FAILURE);
@@ -331,7 +333,7 @@ void launch_workload(const char *filename){
 //MCP: Master Controller Process
 int main(int argc, char const *argv[]){
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s <workload_file>\n", argv[0]);
+        //fprintf(stderr, "Usage: %s <workload_file>\n", argv[0]);
         return 1;
     }
     launch_workload(argv[1]);
