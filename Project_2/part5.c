@@ -27,19 +27,8 @@ You are building a basic multitasking system now!
 */
 
 //global variables for alarm handler
-#define NUM_MAX   // Or some safe upper bound if you don't know the real number yet
+#define NUM_MAX 1000  // Or some safe upper bound if you don't know the real number yet
 int total_context_switches = 0;
-
-//Part 5 code
-
-typedef struct {
-    pid_t pid; // The process ID
-    double total_cpu_seconds;  // Total CPU time used (user + system), converted to seconds
-    int assigned_slice; // Time slice given to this process (based on priority)
-} ProcInfo;
-
-ProcInfo proc_info[NUM_MAX];
-int proc_count = 0;
 
 //queue for Round Robin
 typedef struct {
@@ -260,7 +249,7 @@ void alarm_handler(int sig) {
         current_process = dequeue(&queue);
         total_context_switches++;
         int slice = update_cpu_stats(current_process);  //PART 5 CODE
-        print_process_status(pid);
+        print_process_status(current_process);
         kill(current_process, SIGCONT);  // Resume next process
         // 3. Reset the alarm for the next time slice
         alarm(slice);
