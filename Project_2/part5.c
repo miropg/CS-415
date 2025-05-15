@@ -30,7 +30,7 @@ You are building a basic multitasking system now!
 #define NUM_MAX 100  // Or some safe upper bound if you don't know the real number yet
 
 //Part 5 code
-ProcInfo proc_info[MAX_PROCS];
+ProcInfo proc_info[NUM_MAX];
 int proc_count = 0;
 
 typedef struct {
