@@ -7,6 +7,7 @@
 #include <unistd.h>  // Defines dup2, STDOUT_FILENO, write, close
 #include <signal.h>
 #include <stdbool.h>
+#include <sys/time.h>  // for gettimeofday()
 #include "string_parser.h"
 /*
 MCP v3.0 must act like a real CPU scheduler: let each process run for a short
@@ -326,7 +327,20 @@ void launch_workload(const char *filename){
     }
          
     print_queue(&queue);
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);  // Start timer
     run_scheduler(file_array, command_ctr);
+    gettimeofday(&end_time, NULL);  // Stop timer
+
+    long seconds = end_time.tv_sec - start_time.tv_sec;
+    long micros = end_time.tv_usec - start_time.tv_usec;
+
+    if (micros < 0) {
+        seconds -= 1;
+        micros += 1000000;
+    }
+
+    printf("\nTotal runtime: %ld.%06ld seconds\n", seconds, micros);
     print_queue(&queue);
     free_mem(file_array, command_ctr, pids);
 }
