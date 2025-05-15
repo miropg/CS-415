@@ -319,13 +319,6 @@ void launch_workload(const char *filename){
         pid_t pid = fork();
         pids[i] = pid;
         //PART 5 code
-        if (pid > 0) {  // Parent process
-            // Parent: record info about this child
-            proc_info[i].pid = pid;
-            proc_info[i].total_cpu_seconds = 0.0;
-            proc_info[i].assigned_slice = 1;  // Default time slice
-            proc_count++;  // Optional, if you use this to track how many children
-        }
         if (pid < 0){
 			fprintf(stderr, "fork failed\n");
 			exit(-1);
