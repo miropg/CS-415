@@ -27,7 +27,7 @@ You are building a basic multitasking system now!
 */
 
 //global variables for alarm handler
-#define NUM_MAX 200  // Or some safe upper bound if you don't know the real number yet
+#define NUM_MAX   // Or some safe upper bound if you don't know the real number yet
 int total_context_switches = 0;
 
 //Part 5 code
@@ -180,10 +180,9 @@ pid_t* allocate_pid_array(int command_ctr) {
     return pids;
 }
 
-void update_cpu_stats(){
-    for (int i = 0; i < proc_count; i++){
+int update_cpu_stats(pid_t pid){
         char path[64];
-        sprintf(path, "/proc/%d/stat", proc_info[i].pid);
+        sprintf(path, "/proc/%d/stat", pid);
         FILE* fp = fopen(path, "r");
         if (!fp) continue;
         
@@ -200,11 +199,7 @@ void update_cpu_stats(){
         fclose(fp);
 
         double total_sec = (utime_ticks + stime_ticks) / (double)sysconf(_SC_CLK_TCK);
-        proc_info[i].total_cpu_seconds = total_sec;
-
-        // Optional: Adjust slice — here longer CPU time gives longer slice (simple linear)
-        proc_info[i].assigned_slice = (int)(total_sec + 1);  // ensure minimum of 1s
-    }
+        return (int)(total_sec + 1);
 }
 
 void print_table_header() {
@@ -212,7 +207,7 @@ void print_table_header() {
     printf("--------|-----------------|-------------|------------|--------------------------\n");
 }
 
-void print_process_status(pid_t pid, pid_t current_pid) {
+void print_process_status(pid_t pid) {
     char path[64], line[256];
     sprintf(path, "/proc/%d/status", pid);
 
@@ -237,7 +232,7 @@ void print_process_status(pid_t pid, pid_t current_pid) {
         }
     }
     fclose(fp);
-    const char *running_marker = (pid == current_pid) ? "<-- RUNNING" : "";
+    const char *running_marker = "<-- RUNNING" : "";
     printf("%-8d| %-16s| %-12ld| %-11ld| %4d / %4d %s\n",
        pid, state, vm_size, vm_rss, voluntary_ctxt, nonvoluntary_ctxt, running_marker);
 }
@@ -260,26 +255,15 @@ void alarm_handler(int sig) {
         // Still running — requeue it
         enqueue(&queue, current_process);
     }
-    update_cpu_stats();  //PART 5 CODE
     print_table_header();
-    for (int i = 0; i < queue.size; i++) {
-        int index = (queue.front + i) % NUM_MAX;
-        pid_t pid = queue.data[index];
-        print_process_status(pid, current_process);
-    }
     // 2. Decide on the next process to run
     if (!is_empty(&queue)) {
         current_process = dequeue(&queue);
         total_context_switches++;
+        int slice = update_cpu_stats(current_process);  //PART 5 CODE
+        print_process_status(pid);
         kill(current_process, SIGCONT);  // Resume next process
         // 3. Reset the alarm for the next time slice
-        int slice = 1;
-        for (int i = 0; i < proc_count; i++) {
-            if (proc_info[i].pid == current_process) {
-                slice = proc_info[i].assigned_slice;
-                break;
-            }
-        }
         alarm(slice);
     }   
 }
