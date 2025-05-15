@@ -43,11 +43,10 @@ int proc_count = 0;
 
 //queue for Round Robin
 typedef struct {
-    pid_t data[NUM_MAX];
     int front;
     int rear;
     int size;
-    //finished or not
+    pid_t data[NUM_MAX];
 } Queue;
 
 void init_queue(Queue* q) {
@@ -184,7 +183,7 @@ int update_cpu_stats(pid_t pid){
         char path[64];
         sprintf(path, "/proc/%d/stat", pid);
         FILE* fp = fopen(path, "r");
-        if (!fp) continue;
+        if (!fp) return 1;
         
         //hold the parsed data
         long utime_ticks = 0, stime_ticks = 0;
@@ -232,7 +231,7 @@ void print_process_status(pid_t pid) {
         }
     }
     fclose(fp);
-    const char *running_marker = "<-- RUNNING" : "";
+    const char *running_marker = "<-- RUNNING";
     printf("%-8d| %-16s| %-12ld| %-11ld| %4d / %4d %s\n",
        pid, state, vm_size, vm_rss, voluntary_ctxt, nonvoluntary_ctxt, running_marker);
 }
