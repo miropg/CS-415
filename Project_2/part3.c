@@ -26,7 +26,7 @@ You are building a basic multitasking system now!
 */
 
 //globall variables for alarm handler
-#define NUM_MAX 100  // Or some safe upper bound if you don't know the real number yet
+#define NUM_MAX 200  // Or some safe upper bound if you don't know the real number yet
 
 //queue for Round Robin
 typedef struct {

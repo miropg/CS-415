@@ -27,7 +27,7 @@ You are building a basic multitasking system now!
 */
 
 //global variables for alarm handler
-#define NUM_MAX 100  // Or some safe upper bound if you don't know the real number yet
+#define NUM_MAX 200  // Or some safe upper bound if you don't know the real number yet
 int total_context_switches = 0;
 
 //Part 5 code
