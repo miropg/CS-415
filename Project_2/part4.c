@@ -28,6 +28,7 @@ You are building a basic multitasking system now!
 
 //globall variables for alarm handler
 #define NUM_MAX 100  // Or some safe upper bound if you don't know the real number yet
+int total_context_switches = 0;
 
 //queue for Round Robin
 typedef struct {
@@ -230,6 +231,7 @@ void alarm_handler(int sig) {
     // 2. Decide on the next process to run
     if (!is_empty(&queue)) {
         current_process = dequeue(&queue);
+        total_context_switches++;
         kill(current_process, SIGCONT);  // Resume next process
         // 3. Reset the alarm for the next time slice
         alarm(1);
@@ -341,6 +343,7 @@ void launch_workload(const char *filename){
     }
 
     printf("\nTotal runtime: %ld.%06ld seconds\n", seconds, micros);
+    printf("Total context switches: %d\n", total_context_switches);
     print_queue(&queue);
     free_mem(file_array, command_ctr, pids);
 }
