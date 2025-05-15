@@ -27,7 +27,7 @@ You are building a basic multitasking system now!
 */
 
 //globall variables for alarm handler
-#define NUM_MAX 200  // Or some safe upper bound if you don't know the real number yet
+#define NUM_MAX 1000  // Or some safe upper bound if you don't know the real number yet
 int total_context_switches = 0;
 
 //queue for Round Robin
