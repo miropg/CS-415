@@ -30,14 +30,15 @@ You are building a basic multitasking system now!
 #define NUM_MAX 100  // Or some safe upper bound if you don't know the real number yet
 
 //Part 5 code
-ProcInfo proc_info[NUM_MAX];
-int proc_count = 0;
 
 typedef struct {
     pid_t pid; // The process ID
     double total_cpu_seconds;  // Total CPU time used (user + system), converted to seconds
     int assigned_slice; // Time slice given to this process (based on priority)
 } ProcInfo;
+
+ProcInfo proc_info[NUM_MAX];
+int proc_count = 0;
 
 //queue for Round Robin
 typedef struct {
