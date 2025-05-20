@@ -327,7 +327,7 @@ void* park_experience(void* arg){
         embark_coaster(id);
         sleep(1);  //
     }
-    pthread_exit(NULL); //threads are done after they ride the coaster
+    pthread_exit(NULL); //threads are done after the hours are over
 }
 
 void launch_park(int passengers, int cars, int capacity, int wait, int ride)
@@ -379,6 +379,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride)
 	for (int j = 0; j < passengers; ++j){
 		pthread_join(thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
+    pthread_join(timer, NULL);
     free(thread_ids);
     free(car_thread_ids);
     free(people_id_nums);
