@@ -276,8 +276,11 @@ void unload(Car* car){
 
 void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
-    while (1) {
+    while (simulation_running) {
         sleep(ride_wait);
+        //avoid starting a new ride during closed Park hours? maybe cut
+        if (!simulation_running)
+            break;
         load(car);
         run(car);
         unload(car);
