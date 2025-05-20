@@ -338,6 +338,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride)
     car_capacity = capacity;
     ride_wait = wait;
     ride_duration = ride;
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
     init_queue(&car_queue, cars);
     beginning_stats(tot_passengers, num_cars, car_capacity, ride_wait, ride_duration);
     pthread_mutex_init(&ticket_booth_lock, NULL); //initialize mutex for ticket queue
