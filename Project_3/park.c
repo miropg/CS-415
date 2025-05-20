@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdbool.h>
+#include <errno.h>
 #define NUM_WORKERS 1 //cut later
 
 volatile int simulation_running = 1; // Parks Hours of Operation
@@ -236,7 +237,7 @@ void load(Car* car){
     }
     if (timed_out) {
         print_timestamp();
-        printf("Car %d done waiting, departing with %d passengers\n",
+        printf("Car %d done waiting, departing with %d / %d\n",
                 car->car_id, car->onboard_count, car->capacity);
     } else {
         print_timestamp();
@@ -388,7 +389,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride)
     pthread_mutex_destroy(&ride_lock);
 }
 //int main: 1 process, 1 main thread inside it
-int main(int argc, char const *argv[]){
+int main(int argc, char *argv[]){
     int opt;
     int passengers = -1, cars = -1, capacity = -1, wait = -1, ride = -1;
 
@@ -419,16 +420,14 @@ int main(int argc, char const *argv[]){
     snprintf(message, sizeof(message), "Thread %d finished work, counter = %d\n", *numbers, counter);
     write(pipe_fd[1], message, strlen(message)); 	// write to the pipe	
     pthread_mutex_unlock(&pipe_lock);	
-    */
 
- /*
     pthread_mutex_init(&counter_lock, NULL);		// initialize the lock
 	pthread_mutex_init(&pipe_lock, NULL);		// initialize the lock
     if (pipe(pipe_fd) == -1) {			// init the pipe!
         perror("pipe failed");
         exit(EXIT_FAILURE);
     }
-    /*
+
     close(pipe_fd[1]);		// close write end of pipe
 	char buffer[100];
     ssize_t bytes_read;
