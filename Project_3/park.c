@@ -361,9 +361,6 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride)
         enqueue(&car_queue, &all_cars[i]);
         pthread_create(&car_thread_ids[i], NULL, roller_coaster, (void*)&all_cars[i]);
     }
-    for (int j = 0; j < num_cars; ++j){
-		pthread_join(car_thread_ids[j], NULL); // wait on our threads to rejoin main thread
-	}
     // START THE PARK (40 second timer)
     pthread_t timer;
     pthread_create(&timer, NULL, timer_thread, NULL);  // start the 40s timer
@@ -383,6 +380,10 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride)
 		pthread_join(thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
     pthread_join(timer, NULL);
+
+    for (int j = 0; j < num_cars; ++j){
+		pthread_join(car_thread_ids[j], NULL); // wait on our threads to rejoin main thread
+	}
     free(thread_ids);
     free(car_thread_ids);
     free(people_id_nums);
