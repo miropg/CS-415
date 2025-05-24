@@ -237,7 +237,7 @@ void unload(Car* car){
 }
 
 //roller coaster gets called by each car thread in launch_park
-void* roller_coaster(void* arg){
+void* roller_coaster(void*){
     while (simulation_running) {
         Car* car = dequeue(&car_queue);
         //avoid starting a new ride during closed Park hours? maybe cut

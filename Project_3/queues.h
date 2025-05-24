@@ -31,7 +31,7 @@ void print_queue(CarQueue* q);
 // === PASSENGER DEFINITIONS ===
 typedef struct Passenger {
     int pass_id;
-    struct Car* assigned_car;
+    Car* assigned_car;
     struct Passenger* next;
 } Passenger;
 
