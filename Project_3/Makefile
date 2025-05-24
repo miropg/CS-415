@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -pthread -g
 TARGET = park
-SRC = park.c
+SRC = park.c queues.c
 
 all: $(TARGET)
 
