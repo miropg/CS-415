@@ -140,7 +140,7 @@ void board(Passenger* p) {
 
 //– Called when a passenger exits the car.
 void unboard(Passenger* p) {
-    printf("Passenger %d is entering unboard()\n", p->pass_id);
+    //printf("Passenger %d is entering unboard()\n", p->pass_id);
     pthread_mutex_lock(&ride_lock);
     // wait until car has called unload()
     while (!can_unload_now) {
