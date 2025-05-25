@@ -143,7 +143,7 @@ void unboard(Passenger* p) {
     printf("Passenger %d is entering unboard()\n", p->pass_id);
     pthread_mutex_lock(&ride_lock);
     // wait until car has called unload()
-    while (!can_unload_now  && simulation_running) {
+    while (!can_unload_now) {
         pthread_cond_wait(&can_unboard, &ride_lock);
     }
     Car* my_car = p->assigned_car;
@@ -151,7 +151,9 @@ void unboard(Passenger* p) {
         print_timestamp();
         printf("Passenger %d unboarded Car %d\n", p->pass_id, my_car->car_id);
         my_car->unboard_count++;
-        if (my_car->unboard_count == my_car->onboard_count) {
+
+        int expected = (tot_passengers == 1) ? 1 : my_car->onboard_count;
+        if (my_car->unboard_count == expected) {
             pthread_cond_signal(&all_unboarded);
         }
     }
