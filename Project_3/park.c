@@ -143,7 +143,7 @@ void unboard(Passenger* p) {
     printf("Passenger %d is entering unboard()\n", p->pass_id);
     pthread_mutex_lock(&ride_lock);
     // wait until car has called unload()
-    while (!can_unload_now) {
+    while (!can_unload_now  && simulation_running) {
         pthread_cond_wait(&can_unboard, &ride_lock);
     }
     Car* my_car = p->assigned_car;
@@ -191,6 +191,9 @@ void load(Car* car){
     if (tot_passengers == 1) {
         print_timestamp();
         printf("Only one passenger — departing immediately\n");
+        while (car->onboard_count < passengers_assigned) {
+            pthread_cond_wait(&all_boarded, &ride_lock);
+        }
         can_load_now = 0;
         pthread_mutex_unlock(&ride_lock);
         return;
@@ -269,7 +272,9 @@ void* roller_coaster(void*){
 int embark_coaster(Passenger* p){
     board(p);
     printf("[DEBUG] Passenger %d finished boarding\n", p->pass_id);
-    unboard(p);
+    if (p->assigned_car != NULL) {
+        unboard(p);
+    }
     return 0;
 }
 
