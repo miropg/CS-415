@@ -75,6 +75,7 @@ void print_timestamp() {
     printf("[Time: %02d:%02d:%02d] ", hours, minutes, seconds);
 }
 
+//!!!!!!!!!!!!!!!!!!!!!!!!!!! TEST THIS WHEN DONE WITH PROJECT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 void print_help() {
     printf("Usage: ./park [OPTIONS]\n");
     printf("Options:\n");
@@ -85,7 +86,7 @@ void print_help() {
     printf("  -r INT   Ride duration (seconds)\n");
     printf("  -t INT   Total simulation time in seconds (default: 40)\n");
     printf("  -h       Show this help message\n");
-    printf("\nExample: ./park -n 30 -c 4 -p 6 -w 8 -r 10 -t 60\n");
+    printf("\nExample: ./park -n 10 -c 4 -p 6 -w 8 -r 10 -t 60\n");
 }
 
 struct TimerArgs {
@@ -133,6 +134,7 @@ void board(Passenger* p) {
 
 //– Called when a passenger exits the car.
 void unboard(Passenger* p) {
+    printf("Passenger %d is entering unboard()\n", p->pass_id);
     pthread_mutex_lock(&ride_lock);
     // wait until car has called unload()
     while (!can_unload_now) {
@@ -272,7 +274,7 @@ void* park_experience(void* arg){
 
     while (simulation_running) {
         // Exploring the Park
-        int explore_time = (rand() % 4) + 2; //2-5 seconds
+        int explore_time = (rand() % 10) + 1; //2-5 seconds
         print_timestamp();
         printf("Passenger %d is exploring the park...\n", p->pass_id);
         sleep(explore_time);
@@ -392,6 +394,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 }
 //int main: 1 process, 1 main thread inside it
 int main(int argc, char *argv[]){
+    srand(time(NULL));
     int opt;
     int passengers = -1, cars = -1, capacity = -1, wait = -1, ride = -1;
     int park_hours = 40; //in sec
