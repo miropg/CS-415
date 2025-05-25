@@ -115,6 +115,7 @@ void board(Passenger* p) {
     // wait until load() calls pthread_cond_broadcast(&can_board);
     // threads wake up. check struct if they were assigned a car, if so they board
     while (!can_load_now) {
+        printf("[DEBUG] Passenger %d waiting for can_board\n", p->pass_id);
         pthread_cond_wait(&can_board, &ride_lock);
     }
     Car* my_car = p->assigned_car;
@@ -127,6 +128,9 @@ void board(Passenger* p) {
         if (my_car->onboard_count == my_car->capacity) {
             pthread_cond_signal(&all_boarded);
         }
+    } else {
+        print_timestamp();
+        printf("[ERROR] Passenger %d has no assigned car after boarding attempt!\n", p->pass_id);
     }
     pthread_mutex_unlock(&ride_lock);
     sem_post(&ride_queue_semaphore);
@@ -232,6 +236,7 @@ void unload(Car* car){
     can_unload_now = 1;
     pthread_cond_broadcast(&can_unboard);
     //wait until all passengers who boarded have unboarded
+
     while (car->unboard_count < car->onboard_count) {
         //wait until all passengers unboarded
         pthread_cond_wait(&all_unboarded, &ride_lock);
@@ -260,6 +265,7 @@ void* roller_coaster(void*){
 
 int embark_coaster(Passenger* p){
     board(p);
+    printf("[DEBUG] Passenger %d finished boarding\n", p->pass_id);
     unboard(p);
     return 0;
 }
