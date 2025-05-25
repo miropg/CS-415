@@ -112,7 +112,6 @@ void* timer_thread(void* arg) {
 //– Called when a passenger boards the car.
 void board(Passenger* p) {
     pthread_mutex_lock(&ride_lock);
-    print_timestamp();
     //printf("[DEBUG] Passenger %d waiting for can_board\n", p->pass_id);
     // wait until load() calls pthread_cond_broadcast(&can_board);
     // threads wake up. check struct if they were assigned a car, if so they board
@@ -130,9 +129,6 @@ void board(Passenger* p) {
         if (my_car->onboard_count == my_car->capacity) {
             pthread_cond_signal(&all_boarded);
         }
-    } else {
-        print_timestamp();
-        //printf("[ERROR] Passenger %d has no assigned car after boarding attempt!\n", p->pass_id);
     }
     pthread_mutex_unlock(&ride_lock);
     sem_post(&ride_queue_semaphore);
