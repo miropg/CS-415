@@ -114,7 +114,7 @@ void board(Passenger* p) {
     pthread_mutex_lock(&ride_lock);
     // wait until load() calls pthread_cond_broadcast(&can_board);
     // threads wake up. check struct if they were assigned a car, if so they board
-    while (!can_load_now) {
+    while (!can_load_now || p->assigned_car == NULL) {
         printf("[DEBUG] Passenger %d waiting for can_board\n", p->pass_id);
         pthread_cond_wait(&can_board, &ride_lock);
     }
@@ -172,6 +172,7 @@ void load(Car* car){
         Passenger* p = dequeue_passenger(&coaster_queue);
         if (!p) break;
         p->assigned_car = car;
+        printf("[DEBUG] Assigned Passenger %d to Car %d\n", p->pass_id, car->car_id);
         passengers_assigned++;
     } 
     // If no passengers were assigned (park is closing or queue is now empty),
