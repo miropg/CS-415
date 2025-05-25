@@ -57,7 +57,7 @@ void beginning_stats(int passengers, int cars, int capacity, int wait, int ride,
     printf("- Number of passenger threads: %d\n", passengers);
     printf("- Number of cars: %d\n", cars);
     printf("- Capacity per car: %d\n", capacity);
-    printf("- Park exploration time: 2-5 seconds\n");
+    printf("- Park exploration time: 1-10 seconds\n");
     printf("- Car waiting period: %d seconds\n", wait);
     printf("- Ride duration: %d seconds\n", ride);
     printf("- Total simulation time: %d seconds\n", hours);
@@ -112,10 +112,12 @@ void* timer_thread(void* arg) {
 //– Called when a passenger boards the car.
 void board(Passenger* p) {
     pthread_mutex_lock(&ride_lock);
+    print_timestamp();
+    printf("[DEBUG] Passenger %d waiting for can_board\n", p->pass_id);
     // wait until load() calls pthread_cond_broadcast(&can_board);
     // threads wake up. check struct if they were assigned a car, if so they board
     while (!can_load_now || p->assigned_car == NULL) {
-        printf("[DEBUG] Passenger %d waiting for can_board\n", p->pass_id);
+        printf("[DEBUG] Passenger %d waiting — can_load_now=%d, assigned_car=%p\n", p->pass_id, can_load_now, (void*)p->assigned_car);
         pthread_cond_wait(&can_board, &ride_lock);
     }
     Car* my_car = p->assigned_car;
