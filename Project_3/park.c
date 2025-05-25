@@ -113,11 +113,11 @@ void* timer_thread(void* arg) {
 void board(Passenger* p) {
     pthread_mutex_lock(&ride_lock);
     print_timestamp();
-    printf("[DEBUG] Passenger %d waiting for can_board\n", p->pass_id);
+    //printf("[DEBUG] Passenger %d waiting for can_board\n", p->pass_id);
     // wait until load() calls pthread_cond_broadcast(&can_board);
     // threads wake up. check struct if they were assigned a car, if so they board
     while (!can_load_now || p->assigned_car == NULL) {
-        printf("[DEBUG] Passenger %d waiting — can_load_now=%d, assigned_car=%p\n", p->pass_id, can_load_now, (void*)p->assigned_car);
+        //printf("[DEBUG] Passenger %d waiting — can_load_now=%d, assigned_car=%p\n", p->pass_id, can_load_now, (void*)p->assigned_car);
         pthread_cond_wait(&can_board, &ride_lock);
     }
     Car* my_car = p->assigned_car;
@@ -132,7 +132,7 @@ void board(Passenger* p) {
         }
     } else {
         print_timestamp();
-        printf("[ERROR] Passenger %d has no assigned car after boarding attempt!\n", p->pass_id);
+        //printf("[ERROR] Passenger %d has no assigned car after boarding attempt!\n", p->pass_id);
     }
     pthread_mutex_unlock(&ride_lock);
     sem_post(&ride_queue_semaphore);
@@ -176,7 +176,7 @@ void load(Car* car){
         Passenger* p = dequeue_passenger(&coaster_queue);
         if (!p) break;
         p->assigned_car = car;
-        printf("[DEBUG] Assigned Passenger %d to Car %d\n", p->pass_id, car->car_id);
+        //printf("[DEBUG] Assigned Passenger %d to Car %d\n", p->pass_id, car->car_id);
         passengers_assigned++;
     } 
     // If no passengers were assigned (park is closing or queue is now empty),
@@ -273,7 +273,7 @@ void* roller_coaster(void*){
 
 int embark_coaster(Passenger* p){
     board(p);
-    printf("[DEBUG] Passenger %d finished boarding\n", p->pass_id);
+    //printf("[DEBUG] Passenger %d finished boarding\n", p->pass_id);
     if (p->assigned_car != NULL) {
         unboard(p);
     }
