@@ -37,8 +37,10 @@ void enqueue_passenger(PassengerQueue* q, Passenger* p) {
         q->rear->next = p;
         q->rear = p;
     }
-
     q->size++;
+    if (q == &coaster_queue) {
+        pthread_cond_signal(&passengers_waiting);
+    }
     pthread_mutex_unlock(q->lock);
 }
 
@@ -115,10 +117,13 @@ Car* dequeue(CarQueue* q) {
     pthread_mutex_lock(&car_queue_lock);
 
     // wait until a car is available
-    while (is_empty(q)) {
+    while (is_empty(q) && simulation_running) {
         pthread_cond_wait(&car_available, &car_queue_lock);
     }
-
+    if (!simulation_running && is_empty(q)) {
+        pthread_mutex_unlock(&car_queue_lock);
+        return NULL;
+    }
     Car* car = q->cars[q->front];
     q->front = (q->front + 1) % q->queue_size;
     q->curr_size--;

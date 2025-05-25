@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+extern volatile int simulation_running;
+
 // === CAR DEFINITIONS ===
 typedef struct {
     int car_id;
@@ -55,6 +57,7 @@ extern PassengerQueue ticket_queue;
 
 // === SYNC PRIMITIVES ===
 extern pthread_cond_t car_available;
+extern pthread_cond_t passengers_waiting;
 extern pthread_mutex_t car_queue_lock;
 // extern pthread_mutex_t ticket_queue_lock;
 

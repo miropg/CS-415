@@ -31,6 +31,7 @@ pthread_cond_t can_board      = PTHREAD_COND_INITIALIZER;
 pthread_cond_t all_boarded    = PTHREAD_COND_INITIALIZER;
 pthread_cond_t can_unboard    = PTHREAD_COND_INITIALIZER;
 pthread_cond_t all_unboarded  = PTHREAD_COND_INITIALIZER;
+pthread_cond_t passengers_waiting = PTHREAD_COND_INITIALIZER;
 int can_load_now = 0;
 int can_unload_now = 0;
 
@@ -102,6 +103,7 @@ void* timer_thread(void* arg) {
     pthread_cond_broadcast(&can_board);
     pthread_cond_broadcast(&all_unboarded);
     pthread_cond_broadcast(&can_unboard);
+    pthread_cond_broadcast(&car_available);
     free(t);
     return NULL;
 }
@@ -156,23 +158,25 @@ void load(Car* car){
     pthread_mutex_lock(&ride_lock);
     car->onboard_count = 0;
     car->unboard_count = 0;
-    print_timestamp();
-    printf("Car %d invoked load()\n", car->car_id);
-    can_load_now = 1; // signal board() to board a passenger
-    //assign passengers
+    //wait until there is atleasy someone in the coaster_queue
+    while (is_passenger_queue_empty(&coaster_queue) && simulation_running) {
+        pthread_cond_wait(&passengers_waiting, &ride_lock);
+    }
     for (int i = 0; i < car_capacity; i++) {
         Passenger* p = dequeue_passenger(&coaster_queue);
         if (!p) break;
         p->assigned_car = car;
         passengers_assigned++;
-    }
+    } 
+    // If no passengers were assigned (park is closing or queue is now empty),
+    // exit early to avoid starting a ride with no one on board.
     if (passengers_assigned == 0) {
-        print_timestamp();
-        printf("Car %d found no passengers in queue and is departing empty\n", car->car_id);
-        can_load_now = 0;
         pthread_mutex_unlock(&ride_lock);
         return;
-    }   
+    }
+    print_timestamp();
+    printf("Car %d invoked load()\n", car->car_id);
+    can_load_now = 1; // signal board() to board a passenger
     pthread_cond_broadcast(&can_board); //signal waiting passengers to board
     //Edge case for 1 passenger
     if (tot_passengers == 1) {
