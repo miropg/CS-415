@@ -274,8 +274,10 @@ void* roller_coaster(void*){
             break;
         }
         load(car);
-        run(car);
-        unload(car);
+        if (car->onboard_count > 0) {
+            run(car);
+            unload(car);
+        }
         enqueue(&car_queue, car);
     }
     return NULL;
