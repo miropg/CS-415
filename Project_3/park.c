@@ -105,6 +105,7 @@ void* timer_thread(void* arg) {
     pthread_cond_broadcast(&all_unboarded);
     pthread_cond_broadcast(&can_unboard);
     pthread_cond_broadcast(&car_available);
+    pthread_cond_broadcast(&passengers_waiting);
     free(t);
     return NULL;
 }
@@ -275,7 +276,7 @@ void* roller_coaster(void*){
         }
         enqueue(&car_queue, car);
     }
-    return NULL;
+    pthread_exit(NULL);
 }
 
 int embark_coaster(Passenger* p){
