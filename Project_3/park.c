@@ -261,13 +261,26 @@ void unload(Car* car){
 }
 
 //roller coaster gets called by each car thread in launch_park
-void* roller_coaster(void*){
+void* roller_coaster(void* arg){
+    Car* car = (Car*)arg;
     while (simulation_running) {
-        Car* car = dequeue(&car_queue);
-        //avoid starting a new ride during closed Park hours? maybe cut
-        if (!car || !simulation_running){
+        pthread_mutex_lock(&car_queue_lock);
+        // Wait until this car is at the *front* of the queue
+        // Other car threads may be waiting here too — only one can 
+        // proceed when it's their turn
+        while((car_queue.cars[car_queue.front] != car) && simulation_running) {
+            pthread_cond_wait(&car_available, &car_queue_lock);
+            // This condition variable will be signaled whenever a car is added
+            // to the queue (enqueue)
+            // That way all waiting cars get a chance to check if it's their turn
+        }
+        if (!simulation_running) {
+            pthread_mutex_unlock(&car_queue_lock);
             break;
         }
+        //its the car's tunr, remove it from the qeueue
+        dequeue(&car_queue);
+        pthread_mutex_unlock(&car_queue_lock);
         load(car);
         if (car->onboard_count > 0) {
             run(car);
