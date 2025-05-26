@@ -163,7 +163,9 @@ void load(Car* car){
     pthread_mutex_lock(&ride_lock);
     car->onboard_count = 0;
     car->unboard_count = 0;
-    
+    while (is_passenger_queue_empty(&coaster_queue) && simulation_running) {
+        pthread_cond_wait(&passengers_waiting, &ride_lock);
+    }
     can_load_now = 1; // signal board() to board a passenger
     pthread_cond_broadcast(&can_board); //signal waiting passengers to board
     int passenger_assigned = 0;
@@ -276,6 +278,8 @@ void* roller_coaster(void*){
         }
         enqueue(&car_queue, car);
     }
+    print_timestamp();
+    printf(" DEBUG Car thread exiting\n");
     pthread_exit(NULL);
 }
 
@@ -326,6 +330,8 @@ void* park_experience(void* arg){
         embark_coaster(p);
     }
     free(p); //free specific passenger after park hours
+    print_timestamp();
+    printf(" DEBUG Passenger thread thread exiting\n");
     pthread_exit(NULL); //all threads are done after the park hours are over
 }
 
