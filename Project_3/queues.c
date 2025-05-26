@@ -109,7 +109,8 @@ void enqueue(CarQueue* q, Car* car) {
     q->rear = (q->rear + 1) % q->queue_size;
     q->curr_size++;
      // Signal that a car is now available
-    pthread_cond_signal(&car_available);
+    //pthread_cond_signal(&car_available);
+    pthread_cond_broadcast(&car_available);
     pthread_mutex_unlock(&car_queue_lock);
 }
 
