@@ -22,7 +22,7 @@ volatile int simulation_running = 1; // Parks Hours of Operation
 struct timespec start_time; //timestamps
 
 //locks
-pthread_mutex_t ticket_queue_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t ticket_booth_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t coaster_queue_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t ride_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -123,7 +123,6 @@ void board(Passenger* p) {
     if (my_car != NULL) {
         print_timestamp();
         printf("Passenger %d boarded Car %d\n", p->pass_id, my_car->car_id);
-
         my_car->passenger_ids[my_car->onboard_count++] = p->pass_id;
 
         if (my_car->onboard_count == my_car->capacity) {
@@ -309,11 +308,13 @@ void* park_experience(void* arg){
         enqueue_passenger(&ticket_queue, p);
         print_timestamp();
         printf("Passenger %d waiting in ticket queue\n", p->pass_id);
+        pthread_mutex_lock(&ticket_booth_lock);
         //increments ride queue total, and blocks if line at max
         sem_wait(&ride_queue_semaphore); 
 
         print_timestamp();
         printf("Passenger %d acquired a ticket\n", p->pass_id);
+        pthread_mutex_unlock(&ticket_booth_lock);
         dequeue_passenger(&ticket_queue);
 
         enqueue_passenger(&coaster_queue, p);
@@ -345,7 +346,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     //separate queue structure for cars
     init_car_queue(&car_queue, cars);
     //REUSEing same queue structure for ticket_queue/ride_queue
-    init_passenger_queue(&ticket_queue, &ticket_queue_lock);
+    init_passenger_queue(&ticket_queue, &ticket_booth_lock);
     init_passenger_queue(&coaster_queue, &coaster_queue_lock);
 
     beginning_stats(tot_passengers, num_cars, car_capacity, ride_wait, ride_duration, park_hours);
@@ -405,7 +406,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     free(all_cars);
     //destroy locks
     pthread_mutex_destroy(&car_queue_lock);
-    pthread_mutex_destroy(&ticket_queue_lock);
+    pthread_mutex_destroy(&ticket_booth_lock);
     pthread_mutex_destroy(&coaster_queue_lock);
     pthread_mutex_destroy(&ride_lock);
     //destroy variables & booleans
