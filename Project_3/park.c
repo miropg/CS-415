@@ -269,6 +269,8 @@ void unload(Car* car){
     car->onboard_count = 0;
     can_unload_now = 0;
     pthread_mutex_unlock(&ride_lock);
+    print_timestamp();
+    printf(" DEUBG Car %d passed dequeue and is about to call load()\n", car->car_id);
 }
 
 //roller coaster gets called by each car thread in launch_park
@@ -277,13 +279,13 @@ void* roller_coaster(void* arg){
     while (simulation_running) {
         pthread_mutex_lock(&car_queue_lock);
         print_timestamp();
-        printf("Car %d checking if it's at the front. Queue front: Car %d\n", car->car_id, car_queue.cars[car_queue.front]->car_id);
+        printf(" DEBUG Car %d checking if it's at the front. Queue front: Car %d\n", car->car_id, car_queue.cars[car_queue.front]->car_id);
         // Wait until this car is at the *front* of the queue
         // Other car threads may be waiting here too — only one can 
         // proceed when it's their turn
         while((car_queue.cars[car_queue.front] != car) && simulation_running) {
             print_timestamp();
-            printf(" debuf Car %d is not at front. Waiting...\n", car->car_id);
+            printf("DEBUG Car %d is not at front. Waiting...\n", car->car_id);
             pthread_cond_wait(&car_available, &car_queue_lock);
             // This condition variable will be signaled whenever a car is added
             // to the queue (enqueue)
@@ -296,8 +298,10 @@ void* roller_coaster(void* arg){
         //its the car's tunr, remove it from the qeueue
         dequeue(&car_queue);
         print_timestamp();
-        printf("Car %d passed the turn check, proceeding to load()\n", car->car_id);
+        printf(" DEBUG Car %d passed the turn check, proceeding to load()\n", car->car_id);
         pthread_mutex_unlock(&car_queue_lock);
+        print_timestamp();
+        printf(" DEBUG Car %d passed dequeue and is about to call load()\n", car->car_id);
         load(car);
         if (car->onboard_count > 0) {
             run(car);
