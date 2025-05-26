@@ -340,7 +340,7 @@ void* park_experience(void* arg){
     }
     free(p); //free specific passenger after park hours
     print_timestamp();
-    printf(" DEBUG Passenger thread thread exiting\n");
+    printf("DEBUG Passenger thread exiting\n");
     pthread_exit(NULL); //all threads are done after the park hours are over
 }
 
