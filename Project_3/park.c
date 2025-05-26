@@ -167,10 +167,16 @@ void load(Car* car){
     pthread_cond_broadcast(&can_board); //signal waiting passengers to board
     int passenger_assigned = 0;
     // Try to dequeue one passenger immediately (to catch the solo case early)
+    printf("Car %d entering load(), coaster_queue size: %d\n", car->car_id, coaster_queue.size);
     while (!is_passenger_queue_empty(&coaster_queue) &&
            car->onboard_count < car_capacity) {
         Passenger* p = dequeue_passenger(&coaster_queue);
-        if (p) {
+        if (p == NULL){
+            print_timestamp();
+            printf(" DEBUG Car %d tried to dequeue but got NULL\n", car->car_id);
+        } else {
+            print_timestamp();
+            printf(" DEBUG Car %d dequeued passenger %d\n", car->car_id, p->pass_id);
             p->assigned_car = car;
             passenger_assigned = 1;
             pthread_cond_broadcast(&can_board);
@@ -197,7 +203,12 @@ void load(Car* car){
         while (!is_passenger_queue_empty(&coaster_queue) &&
                 car->onboard_count < car_capacity) {
             Passenger* p = dequeue_passenger(&coaster_queue);
-            if (p) {
+            if (p == NULL){
+                print_timestamp();
+                printf("Car %d tried to dequeue but got NULL\n", car->car_id);
+            } else {
+                print_timestamp();
+                printf(" DEBUG Car %d dequeued passenger %d\n", car->car_id, p->pass_id);
                 p->assigned_car = car;
                 passenger_assigned = 1;
                 pthread_cond_broadcast(&can_board);
