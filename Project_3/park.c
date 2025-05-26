@@ -315,6 +315,7 @@ void* park_experience(void* arg){
 
         print_timestamp();
         printf("Passenger %d acquired a ticket\n", p->pass_id);
+        usleep(1000000);
         pthread_mutex_unlock(&ticket_booth_lock);
         dequeue_passenger(&ticket_queue);
 
