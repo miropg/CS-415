@@ -307,8 +307,6 @@ void* park_experience(void* arg){
         print_timestamp();
         printf("Passenger %d is exploring the park...\n", p->pass_id);
         sleep(explore_time);
-
-        if (!simulation_running) break;
         print_timestamp();
         printf("Passenger %d finished exploring, heading to ticket booth\n", p->pass_id);
         
@@ -317,10 +315,6 @@ void* park_experience(void* arg){
         print_timestamp();
         printf("Passenger %d waiting in ticket queue\n", p->pass_id);
         pthread_mutex_lock(&ticket_booth_lock);
-        if (!simulation_running) {
-            pthread_mutex_unlock(&ticket_booth_lock);
-            break;
-        }
         //increments ride queue total, and blocks if line at max
         sem_wait(&ride_queue_semaphore); 
 
@@ -328,19 +322,17 @@ void* park_experience(void* arg){
         printf("Passenger %d acquired a ticket\n", p->pass_id);
         pthread_mutex_unlock(&ticket_booth_lock);
         dequeue_passenger(&ticket_queue);
-        if (!simulation_running) break;
 
         enqueue_passenger(&coaster_queue, p);
         pthread_cond_signal(&passengers_waiting);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id); 
-        if (simulation_running) {
-            embark_coaster(p);
-        }
+
+        embark_coaster(p);
     }
     free(p); //free specific passenger after park hours
     print_timestamp();
-    printf("DEBUG Passenger thread exiting\n");
+    printf(" DEBUG Passenger thread thread exiting\n");
     pthread_exit(NULL); //all threads are done after the park hours are over
 }
 
