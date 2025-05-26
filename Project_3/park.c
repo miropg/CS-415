@@ -121,7 +121,7 @@ void board(Passenger* p) {
         pthread_cond_wait(&can_board, &ride_lock);
     }
     Car* my_car = p->assigned_car;
-    if (my_car != NULL) {
+    if (my_car != NULL && my_car->onboard_count < my_car->capacity) {
         print_timestamp();
         printf("Passenger %d boarded Car %d\n", p->pass_id, my_car->car_id);
         my_car->passenger_ids[my_car->onboard_count++] = p->pass_id;
@@ -163,16 +163,17 @@ void load(Car* car){
     pthread_mutex_lock(&ride_lock);
     car->onboard_count = 0;
     car->unboard_count = 0;
-    
+    int assigned_count = 0;
     can_load_now = 1; // signal board() to board a passenger
     pthread_cond_broadcast(&can_board); //signal waiting passengers to board
     int passenger_assigned = 0;
     // Try to dequeue one passenger immediately (to catch the solo case early)
     while (!is_passenger_queue_empty(&coaster_queue) &&
-           car->onboard_count < car_capacity) {
+           assigned_count < car_capacity) {
         Passenger* p = dequeue_passenger(&coaster_queue);
         if (p) {
             p->assigned_car = car;
+            assigned_count++;
             passenger_assigned = 1;
             pthread_cond_broadcast(&can_board);
         }
