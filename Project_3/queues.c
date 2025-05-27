@@ -38,9 +38,9 @@ void enqueue_passenger(PassengerQueue* q, Passenger* p) {
         q->rear = p;
     }
     q->size++;
-    if (q == &coaster_queue) {
-        pthread_cond_signal(&passengers_waiting);
-    }
+    // if (q == &coaster_queue) {
+    //     pthread_cond_signal(&passengers_waiting);
+    // }
     pthread_mutex_unlock(q->lock);
 }
 

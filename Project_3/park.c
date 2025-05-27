@@ -289,6 +289,9 @@ void* roller_coaster(void* arg){
         pthread_cond_broadcast(&car_available); // signal that a car is available
         
         while (is_passenger_queue_empty(&coaster_queue) && simulation_running) {
+            print_timestamp();
+printf("[DEBUG] Car %d waiting for passengers...\n", car->car_id);
+
             pthread_cond_wait(&passengers_waiting, &car_queue_lock);
             print_timestamp();
 printf("[DEBUG] Car %d woke up. Queue front: Car %d\n", car->car_id,
