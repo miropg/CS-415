@@ -280,20 +280,10 @@ void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
     pthread_mutex_lock(&car_queue_lock);
     enqueue(&car_queue, car);
-    pthread_cond_broadcast(&car_available);
     pthread_mutex_unlock(&car_queue_lock);
 
     while (simulation_running) {
         pthread_mutex_lock(&car_queue_lock);
-        while ((car_queue.cars[car_queue.front] != car) && simulation_running) {
-            pthread_cond_wait(&car_available, &car_queue_lock);
-        }
-
-        if (!simulation_running) {
-            pthread_mutex_unlock(&car_queue_lock);
-            break;
-        }
-
         dequeue(&car_queue);
         pthread_mutex_unlock(&car_queue_lock); 
 
