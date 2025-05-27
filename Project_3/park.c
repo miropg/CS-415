@@ -287,6 +287,11 @@ void* roller_coaster(void* arg){
         //dequeue a car to start boarding passengers
         Car* dequeued = dequeue(&car_queue);
         pthread_mutex_unlock(&car_queue_lock);
+        if (dequeued != car) {
+            print_timestamp();
+            printf(" DEBUG dequeued car does not match current thread car\n");
+            continue;
+        }
         //load up dequeued car
         load(car);
 
