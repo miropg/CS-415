@@ -287,7 +287,7 @@ void* roller_coaster(void* arg){
         while (is_passenger_queue_empty(&coaster_queue) && simulation_running) {
             pthread_cond_wait(&passengers_waiting, &car_queue_lock);
         }
-        if (!is_empty(&car_queue) != NULL && car_queue.cars[car_queue.front] == car) {
+        if (!is_empty(&car_queue) && car_queue.cars[car_queue.front] == car) {
             dequeue(&car_queue);
             pthread_mutex_unlock(&car_queue_lock);
             pthread_mutex_lock(&load_lock);
