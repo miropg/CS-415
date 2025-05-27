@@ -349,7 +349,7 @@ void* park_experience(void* arg){
         enqueue_passenger(&coaster_queue, p);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id); 
-        pthread_cond_signal(&passengers_waiting);
+        pthread_cond_broadcast(&passengers_waiting);
 
         embark_coaster(p);
     }
