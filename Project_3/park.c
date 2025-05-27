@@ -160,17 +160,6 @@ void unboard(Passenger* p) {
 // ROLLER COASTER FUNCTIONS
 // Signals passengers to call board
 void load(Car* car){
-    // We now dequeue in load instead
-    pthread_mutex_lock(&car_queue_lock);
-    Car* front = peek_car(&car_queue);
-    if (front == car) {
-        dequeue(&car_queue);
-    } else {
-        print_timestamp();
-        printf("WARNING: Car %d expected at front, but found Car %d\n", car->car_id,
-               front ? front->car_id : -1);
-    }
-    pthread_mutex_unlock(&car_queue_lock);
     pthread_mutex_lock(&ride_lock);
     car->onboard_count = 0;
     car->unboard_count = 0;
@@ -289,13 +278,16 @@ void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
 
     while (simulation_running) {
-        // Step 1: Enqueue self to indicate availability
+        // new car threads join the empty car queue
         pthread_mutex_lock(&car_queue_lock);
         enqueue(&car_queue, car);
         pthread_cond_broadcast(&car_available); // signal that a car is available
+        //all cars wait until a single passenger is ready
+        pthread_cond_wait(&passengers_waiting, &car_queue_lock);
+        //dequeue a car to start boarding passengers
+        Car* dequeued = dequeue(&car_queue);
         pthread_mutex_unlock(&car_queue_lock);
-
-        // Step 2: Wait for passengers to board and start the ride
+        //load up dequeued car
         load(car);
 
         // Step 3: Only ride and unload if passengers boarded
