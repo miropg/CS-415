@@ -277,7 +277,8 @@ void unload(Car* car){
 //roller coaster gets called by each car thread in launch_park
 void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
-
+    print_timestamp();
+    printf("[DEBUG] Car %d thread started.\n", car->car_id);
     while (simulation_running) {
         // new car threads join the empty car queue
         pthread_mutex_lock(&car_queue_lock);
