@@ -283,9 +283,7 @@ void* roller_coaster(void* arg){
     pthread_mutex_unlock(&car_queue_lock);
 
     while (simulation_running) {
-        pthread_mutex_lock(&car_queue_lock);
         dequeue(&car_queue);
-        pthread_mutex_unlock(&car_queue_lock); 
 
         pthread_mutex_lock(&load_lock);
         load(car);
@@ -341,10 +339,10 @@ void* park_experience(void* arg){
         dequeue_passenger(&ticket_queue);
 
         enqueue_passenger(&coaster_queue, p);
+        pthread_cond_signal(&passengers_waiting);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id); 
-        pthread_cond_broadcast(&passengers_waiting);
-
+        
         embark_coaster(p);
     }
     free(p); //free specific passenger after park hours
