@@ -282,15 +282,24 @@ void* roller_coaster(void* arg){
         // new car threads join the empty car queue
         pthread_mutex_lock(&car_queue_lock);
         enqueue(&car_queue, car);
+        print_timestamp();
+        printf("[DEBUG] Car %d enqueued and waiting for passengers\n", car->car_id);
+        print_queue(&car_queue);
         pthread_cond_broadcast(&car_available); // signal that a car is available
         
         while (is_passenger_queue_empty(&coaster_queue) && simulation_running) {
             pthread_cond_wait(&passengers_waiting, &car_queue_lock);
+            print_timestamp();
+printf("[DEBUG] Car %d woke up. Queue front: Car %d\n", car->car_id,
+       car_queue.cars[car_queue.front] ? car_queue.cars[car_queue.front]->car_id : -1);
         }
+        print_queue(&car_queue);
         if (!is_empty(&car_queue) && car_queue.cars[car_queue.front] == car) {
             dequeue(&car_queue);
             pthread_mutex_unlock(&car_queue_lock);
             pthread_mutex_lock(&load_lock);
+            print_timestamp();
+printf("[DEBUG] Car %d is at front and trying to load()\n", car->car_id);
             load(car);
             pthread_mutex_unlock(&load_lock);
             // Step 3: Only ride and unload if passengers boarded
@@ -299,6 +308,9 @@ void* roller_coaster(void* arg){
                 unload(car);
             }
         } else {
+            print_timestamp();
+            printf("[DEBUG] Car %d is NOT at the front. Skipping load.\n", car->car_id);
+            print_queue(&car_queue);
             pthread_mutex_unlock(&car_queue_lock);
         }
         // Loop repeats: car will re-enqueue itself on next cycle
