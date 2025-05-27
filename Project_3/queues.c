@@ -133,6 +133,11 @@ Car* dequeue(CarQueue* q) {
     return car;
 }
 
+Car* peek_car(CarQueue* q) {
+    if (is_empty(q)) return NULL;
+    return q->cars[q->front];
+}
+
 void print_queue(CarQueue* q) {
     if (is_empty(q)) {
         printf("Queue is empty.\n");

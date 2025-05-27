@@ -28,6 +28,7 @@ bool is_empty(CarQueue* q);
 bool is_full(CarQueue* q);
 void enqueue(CarQueue* q, Car* car);
 Car* dequeue(CarQueue* q);
+Car* peek_car(CarQueue* q);
 void print_queue(CarQueue* q);
 
 // === PASSENGER DEFINITIONS ===

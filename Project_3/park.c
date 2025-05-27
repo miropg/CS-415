@@ -160,6 +160,17 @@ void unboard(Passenger* p) {
 // ROLLER COASTER FUNCTIONS
 // Signals passengers to call board
 void load(Car* car){
+    // We now dequeue in load instead
+    pthread_mutex_lock(&car_queue_lock);
+    Car* front = peek_car(&car_queue);
+    if (front == car) {
+        dequeue(&car_queue);
+    } else {
+        print_timestamp();
+        printf("WARNING: Car %d expected at front, but found Car %d\n", car->car_id,
+               front ? front->car_id : -1);
+    }
+    pthread_mutex_unlock(&car_queue_lock);
     pthread_mutex_lock(&ride_lock);
     car->onboard_count = 0;
     car->unboard_count = 0;
@@ -205,7 +216,7 @@ void load(Car* car){
             Passenger* p = dequeue_passenger(&coaster_queue);
             if (p == NULL){
                 print_timestamp();
-                printf("Car %d tried to dequeue but got NULL\n", car->car_id);
+                printf(" DEBUG Car %d tried to dequeue but got NULL\n", car->car_id);
             } else {
                 print_timestamp();
                 printf(" DEBUG Car %d dequeued passenger %d\n", car->car_id, p->pass_id);
@@ -270,44 +281,29 @@ void unload(Car* car){
     can_unload_now = 0;
     pthread_mutex_unlock(&ride_lock);
     print_timestamp();
-    printf(" DEUBG Car %d passed dequeue and is about to call load()\n", car->car_id);
+    printf("Car %d completed unload and will rejoin the queue.\n", car->car_id);
 }
 
 //roller coaster gets called by each car thread in launch_park
 void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
+
     while (simulation_running) {
+        // Step 1: Enqueue self to indicate availability
         pthread_mutex_lock(&car_queue_lock);
-        print_timestamp();
-        printf(" DEBUG Car %d checking if it's at the front. Queue front: Car %d\n", car->car_id, car_queue.cars[car_queue.front]->car_id);
-        // Wait until this car is at the *front* of the queue
-        // Other car threads may be waiting here too — only one can 
-        // proceed when it's their turn
-        while((car_queue.cars[car_queue.front] != car) && simulation_running) {
-            print_timestamp();
-            printf("DEBUG Car %d is not at front. Waiting...\n", car->car_id);
-            pthread_cond_wait(&car_available, &car_queue_lock);
-            // This condition variable will be signaled whenever a car is added
-            // to the queue (enqueue)
-            // That way all waiting cars get a chance to check if it's their turn
-        }
-        if (!simulation_running) {
-            pthread_mutex_unlock(&car_queue_lock);
-            break;
-        }
-        //its the car's tunr, remove it from the qeueue
-        dequeue(&car_queue);
-        print_timestamp();
-        printf(" DEBUG Car %d passed the turn check, proceeding to load()\n", car->car_id);
+        enqueue(&car_queue, car);
+        pthread_cond_broadcast(&car_available); // signal that a car is available
         pthread_mutex_unlock(&car_queue_lock);
-        print_timestamp();
-        printf(" DEBUG Car %d passed dequeue and is about to call load()\n", car->car_id);
+
+        // Step 2: Wait for passengers to board and start the ride
         load(car);
+
+        // Step 3: Only ride and unload if passengers boarded
         if (car->onboard_count > 0) {
             run(car);
             unload(car);
         }
-        enqueue(&car_queue, car);
+        // Loop repeats: car will re-enqueue itself on next cycle
     }
     pthread_exit(NULL);
 }
@@ -396,7 +392,6 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
         all_cars[i].onboard_count = 0;
         all_cars[i].unboard_count = 0;
         all_cars[i].passenger_ids = malloc(sizeof(int) * car_capacity);
-        enqueue(&car_queue, &all_cars[i]);
         pthread_create(&car_thread_ids[i], NULL, roller_coaster, (void*)&all_cars[i]);
     }
     // START THE PARK (40 second default timer)
