@@ -283,6 +283,7 @@ void* roller_coaster(void* arg){
     pthread_mutex_unlock(&car_queue_lock);
 
     while (simulation_running) {
+        print_queue(car);
         dequeue(&car_queue);
 
         pthread_mutex_lock(&load_lock);
