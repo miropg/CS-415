@@ -281,9 +281,8 @@ void unload(Car* car){
 void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
     enqueue(&car_queue, car);
-
+    print_queue(&car_queue);  //debug
     while (simulation_running) {
-        print_queue(&car_queue);  //debug
         pthread_mutex_lock(&car_selection_lock);
         if(currently_loading == 0 && !is_passenger_queue_empty(&coaster_queue)){
             currently_loading = 1;
