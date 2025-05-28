@@ -25,7 +25,7 @@ struct timespec start_time; //timestamps
 pthread_mutex_t ticket_booth_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t coaster_queue_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t ride_lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t load_lock = PTHREAD_MUTEX_INITIALIZER;
+//pthread_mutex_t load_lock = PTHREAD_MUTEX_INITIALIZER;
 
 //condition variables
 pthread_cond_t can_board      = PTHREAD_COND_INITIALIZER;
@@ -283,10 +283,7 @@ void* roller_coaster(void* arg){
     while (simulation_running) {
         print_queue(&car_queue);  //debug
         dequeue(&car_queue);
-
-        pthread_mutex_lock(&load_lock);
         load(car);
-        pthread_mutex_unlock(&load_lock);
             // Step 3: Only ride and unload if passengers boarded
         if (car->onboard_count > 0) {
             run(car);
@@ -428,7 +425,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_mutex_destroy(&ticket_booth_lock);
     pthread_mutex_destroy(&coaster_queue_lock);
     pthread_mutex_destroy(&ride_lock);
-    pthread_mutex_destroy(&load_lock);
+    //pthread_mutex_destroy(&load_lock);
     //destroy variables & booleans
     pthread_cond_destroy(&can_board);
     pthread_cond_destroy(&all_boarded);
