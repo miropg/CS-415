@@ -20,8 +20,10 @@ pthread_cond_broadcast() or pthread_cond_signal()*/
 
 volatile int simulation_running = 1; // Parks Hours of Operation
 struct timespec start_time; //timestamps
+int currently_loading = 0;
 
 //locks
+pthread_mutex_t car_selection_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t ticket_booth_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t coaster_queue_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t ride_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -32,7 +34,7 @@ pthread_cond_t can_board      = PTHREAD_COND_INITIALIZER;
 pthread_cond_t all_boarded    = PTHREAD_COND_INITIALIZER;
 pthread_cond_t can_unboard    = PTHREAD_COND_INITIALIZER;
 pthread_cond_t all_unboarded  = PTHREAD_COND_INITIALIZER;
-pthread_cond_t passengers_waiting = PTHREAD_COND_INITIALIZER;
+//pthread_cond_t passengers_waiting = PTHREAD_COND_INITIALIZER;
 int can_load_now = 0;
 int can_unload_now = 0;
 
@@ -106,7 +108,7 @@ void* timer_thread(void* arg) {
     pthread_cond_broadcast(&all_unboarded);
     pthread_cond_broadcast(&can_unboard);
     pthread_cond_broadcast(&car_available);
-    pthread_cond_broadcast(&passengers_waiting);
+    //pthread_cond_broadcast(&passengers_waiting);
     free(t);
     return NULL;
 }
@@ -282,12 +284,25 @@ void* roller_coaster(void* arg){
 
     while (simulation_running) {
         print_queue(&car_queue);  //debug
-        dequeue(&car_queue);
-        load(car);
-            // Step 3: Only ride and unload if passengers boarded
-        if (car->onboard_count > 0) {
-            run(car);
-            unload(car);
+        pthread_mutex_lock(&car_selection_lock);
+        if(currently_loading == 0 && !is_passenger_queue_empty(&coaster_queue)){
+            currently_loading = 1;
+            pthread_mutex_unlock(&car_selection_lock);
+            dequeue(&car_queue);
+            load(car);
+                // Step 3: Only ride and unload if passengers boarded
+            if (car->onboard_count > 0) {
+                run(car);
+                unload(car);
+            }
+            pthread_mutex_lock(&car_selection_lock);
+            currently_loading = 0;
+            pthread_mutex_unlock(&car_selection_lock);
+            enqueue(&car_queue, car);
+        } else {
+            //just have cars wait if loading or car_queue line empty
+            pthread_mutex_unlock(&car_selection_lock);
+            usleep(1000); // small sleep to prevent tight CPU loop
         }
         // Loop repeats: car will re-enqueue itself on next cycle
     }
@@ -335,7 +350,7 @@ void* park_experience(void* arg){
         dequeue_passenger(&ticket_queue);
 
         enqueue_passenger(&coaster_queue, p);
-        pthread_cond_signal(&passengers_waiting);
+        //pthread_cond_signal(&passengers_waiting);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id); 
         
@@ -425,6 +440,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_mutex_destroy(&ticket_booth_lock);
     pthread_mutex_destroy(&coaster_queue_lock);
     pthread_mutex_destroy(&ride_lock);
+    pthread_mutex_destroy(&car_selection_lock);
     //pthread_mutex_destroy(&load_lock);
     //destroy variables & booleans
     pthread_cond_destroy(&can_board);
