@@ -278,12 +278,10 @@ void unload(Car* car){
 //roller coaster gets called by each car thread in launch_park
 void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
-    pthread_mutex_lock(&car_queue_lock);
     enqueue(&car_queue, car);
-    pthread_mutex_unlock(&car_queue_lock);
 
     while (simulation_running) {
-        print_queue(&car_queue);
+        print_queue(&car_queue);  //debug
         dequeue(&car_queue);
 
         pthread_mutex_lock(&load_lock);
