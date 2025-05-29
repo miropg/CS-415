@@ -433,7 +433,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_cond_destroy(&can_unboard);
     pthread_cond_destroy(&all_unboarded);
     pthread_cond_destroy(&car_available);
-    pthread_cond_destroy(passengers_waiting);
+    pthread_cond_destroy(&passengers_waiting);
     //destroy semaphore used in size of ride_queue
     sem_destroy(&ride_queue_semaphore);
 }
