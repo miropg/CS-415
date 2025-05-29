@@ -286,6 +286,7 @@ void* roller_coaster(void* arg){
         }
         // Loop repeats: car will re-enqueue itself on next cycle
     }
+    return NULL;
     // pthread_exit(NULL);
 }
 
@@ -337,6 +338,7 @@ void* park_experience(void* arg){
         
         embark_coaster(p);
     }
+    return NULL;
     // pthread_exit(NULL); //all threads are done after the park hours are over
 }
 
