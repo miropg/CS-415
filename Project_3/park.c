@@ -275,13 +275,13 @@ void* roller_coaster(void* arg){
             pthread_mutex_unlock(&car_selection_lock);
             dequeue(&car_queue);
             load(car);
+            currently_loading = 0;
                 // Step 3: Only ride and unload if passengers boarded
             if (car->onboard_count > 0) {
                 run(car);
                 unload(car);
             }
             pthread_mutex_lock(&car_selection_lock);
-            currently_loading = 0;
             pthread_mutex_unlock(&car_selection_lock);
             enqueue(&car_queue, car);
         } else {
