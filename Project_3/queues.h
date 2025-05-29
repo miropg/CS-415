@@ -13,6 +13,8 @@ typedef struct {
     int unboard_count;
     int onboard_count;
     int* passenger_ids;
+    pthread_cond_t can_unload;
+    bool can_unload_now;
 } Car;
 
 typedef struct {

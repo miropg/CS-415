@@ -142,19 +142,18 @@ void unboard(Passenger* p) {
     //printf("Passenger %d is entering unboard()\n", p->pass_id);
     pthread_mutex_lock(&ride_lock);
     // wait until car has called unload()
-    while (!can_unload_now) {
-        pthread_cond_wait(&can_unboard, &ride_lock);
-    }
     Car* my_car = p->assigned_car;
-    if (my_car != NULL){
-        print_timestamp();
-        printf("Passenger %d unboarded Car %d\n", p->pass_id, my_car->car_id);
-        my_car->unboard_count++;
+    while (!my_car->can_unload_now) {
+        pthread_cond_wait(&my_car->can_unload, &ride_lock);
+    }
 
-        int expected = (tot_passengers == 1) ? 1 : my_car->onboard_count;
-        if (my_car->unboard_count == expected) {
-            pthread_cond_signal(&all_unboarded);
-        }
+    print_timestamp();
+    printf("Passenger %d unboarded Car %d\n", p->pass_id, my_car->car_id);
+    my_car->unboard_count++;
+
+    int expected = (tot_passengers == 1) ? 1 : my_car->onboard_count;
+    if (my_car->unboard_count == expected) {
+        pthread_cond_signal(&all_unboarded);
     }
     pthread_mutex_unlock(&ride_lock);
     p->assigned_car = NULL;
@@ -246,8 +245,8 @@ void unload(Car* car){
     print_timestamp();
     printf("Car %d invoked unload()\n", car->car_id);
 
-    can_unload_now = 1;
-    pthread_cond_broadcast(&can_unboard);
+    car->can_unload_now = true;
+    pthread_cond_broadcast(&car->can_unload); //changed to car specific value
     //wait until all passengers who boarded have unboarded
 
     while (car->unboard_count < car->onboard_count) {
@@ -256,7 +255,7 @@ void unload(Car* car){
     }
     car->unboard_count = 0; //reset after all passengers exited
     car->onboard_count = 0;
-    can_unload_now = 0;
+    car->can_unload_now = false;
     pthread_mutex_unlock(&ride_lock);
     print_timestamp();
     printf("Car %d completed unload and will rejoin the queue.\n", car->car_id);
@@ -378,6 +377,8 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
         all_cars[i].onboard_count = 0;
         all_cars[i].unboard_count = 0;
         all_cars[i].passenger_ids = malloc(sizeof(int) * car_capacity);
+        pthread_cond_init(&all_cars[i].can_unload, NULL);
+        all_cars[i].can_unload_now = false;
         pthread_create(&car_thread_ids[i], NULL, roller_coaster, (void*)&all_cars[i]);
     }
     // START THE PARK (40 second default timer)
