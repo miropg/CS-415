@@ -263,7 +263,7 @@ void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
     enqueue(&car_queue, car);
     print_queue(&car_queue);  //debug
-    while (true) {
+    while (simulation_running) {
         pthread_mutex_lock(&car_selection_lock);
         bool can_load = !is_passenger_queue_empty(&coaster_queue) &&
                 car_queue.cars[car_queue.front] == car;
@@ -306,7 +306,7 @@ void* park_experience(void* arg){
     print_timestamp();
     printf("Passenger %d entered the park\n", p->pass_id);
 
-    while (true) {
+    while (simulation_running) {
         // Exploring the Park
         int explore_time = (rand() % 10) + 1; //2-5 seconds
         print_timestamp();
@@ -323,8 +323,8 @@ void* park_experience(void* arg){
         //increments ride queue total, and blocks if line at max
         sem_wait(&ride_queue_semaphore); 
 
-        print_timestamp();
         usleep(1000000);
+        print_timestamp();
         printf("Passenger %d acquired a ticket\n", p->pass_id);
         pthread_mutex_unlock(&ticket_booth_lock);
         dequeue_passenger(&ticket_queue);
@@ -397,7 +397,16 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 		pthread_create(&thread_ids[i], NULL, park_experience, (void*)passenger_objects[i]);
         usleep(100000); //stagger passengers entering the park(can make random instead?)
     }
-    sleep(park_hours); //
+    sleep(park_hours);
+    simulation_running = 0;
+    print_timestamp();
+    printf("Simulation timer ended. Closing the park.\n");
+
+    pthread_cond_broadcast(&can_board);
+    pthread_cond_broadcast(&all_boarded);
+    pthread_cond_broadcast(&all_unboarded);
+    pthread_cond_broadcast(&passengers_waiting);
+
     for(int i = 0; i < passengers; i++){
         pthread_cancel(thread_ids[i]);
         free(passenger_objects[i]);
