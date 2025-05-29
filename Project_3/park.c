@@ -186,7 +186,6 @@ void load(Car* car){
     //printf("Car %d entering load(), coaster_queue size: %d\n", car->car_id, coaster_queue.size);
     int passenger_assigned = attempt_load_available_passenger(car);
     if (passenger_assigned) {
-        pthread_cond_broadcast(&can_board);
         print_timestamp();
         printf("Car %d invoked load()\n", car->car_id);
     }
@@ -204,11 +203,8 @@ void load(Car* car){
 
     int result = 0;
     while (car->onboard_count < car_capacity){
-        if (attempt_load_available_passenger(car)) {
-            if(car->onboard_count == car_capacity) break;
-        }
-        if (car->onboard_count == car_capacity) break;
-        result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
+        attempt_load_available_passenger(car);
+        result = pthread_cond_timedwait(&all_boarded, &ride_lock, &deadline);
         if (result == ETIMEDOUT) break;
     }
     if (car->onboard_count == 0) {
