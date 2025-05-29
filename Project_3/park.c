@@ -166,7 +166,7 @@ int attempt_load_available_passenger(Car* car){
             car->capacity) {
         Passenger* p = dequeue_passenger(&coaster_queue);
         if (p != NULL) { 
-            print_timestamp();
+            //print_timestamp();
             //printf(" DEBUG Car %d dequeued passenger %d\n", car->car_id, p->pass_id);
             p->assigned_car = car;
             pthread_cond_broadcast(&can_board);
