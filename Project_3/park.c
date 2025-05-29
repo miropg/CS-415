@@ -170,6 +170,7 @@ int attempt_load_available_passenger(Car* car){
             p->assigned_car = car;
             pthread_cond_broadcast(&can_board);
             passenger_assigned = 1;
+            car->onboard_count++;
         }
     }
     return passenger_assigned;
