@@ -401,7 +401,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
         passenger_objects[i]->next = NULL;
         // threads enter the park when you call simulate_work on them
 		pthread_create(&thread_ids[i], NULL, park_experience, (void*)passenger_objects[i]);
-        usleep(100000); //stagger passengers entering the park(can make random instead?)
+        sleep(1); //stagger passengers entering the park(can make random instead?)
     }
     sleep(park_hours);
     simulation_running = 0;
@@ -448,7 +448,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_cond_destroy(&all_boarded);
     pthread_cond_destroy(&can_unboard);
     pthread_cond_destroy(&all_unboarded);
-    pthread_cond_destroy(&car_available);
+    //pthread_cond_destroy(&car_available);
     pthread_cond_destroy(&passengers_waiting);
     //destroy semaphore used in size of ride_queue
     sem_destroy(&ride_queue_semaphore);
