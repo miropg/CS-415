@@ -268,11 +268,11 @@ void* roller_coaster(void* arg){
         bool can_load = !is_passenger_queue_empty(&coaster_queue) &&
                 car_queue.cars[car_queue.front] == car;
         if (can_load) {
-            //currently_loading = 1;
+            currently_loading = 1;
             dequeue(&car_queue);
             pthread_mutex_unlock(&car_selection_lock);
             load(car);
-            //currently_loading = 0;
+            currently_loading = 0;
                 // Step 3: Only ride and unload if passengers boarded
             if (car->onboard_count > 0) {
                 run(car);
