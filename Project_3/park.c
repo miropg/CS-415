@@ -128,7 +128,9 @@ void board(Passenger* p) {
         print_timestamp();
         printf("Passenger %d boarded Car %d\n", p->pass_id, my_car->car_id);
         my_car->passenger_ids[my_car->onboard_count++] = p->pass_id;
-
+        
+        pthread_cond_signal(&passengers_waiting);
+        
         if (my_car->onboard_count == my_car->capacity) {
             pthread_cond_signal(&all_boarded);
         }
@@ -170,7 +172,6 @@ int attempt_load_available_passenger(Car* car){
             p->assigned_car = car;
             pthread_cond_broadcast(&can_board);
             passenger_assigned = 1;
-            car->onboard_count++;
         }
     }
     return passenger_assigned;
