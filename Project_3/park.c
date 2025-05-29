@@ -34,7 +34,7 @@ pthread_cond_t can_board      = PTHREAD_COND_INITIALIZER;
 pthread_cond_t all_boarded    = PTHREAD_COND_INITIALIZER;
 pthread_cond_t can_unboard    = PTHREAD_COND_INITIALIZER;
 pthread_cond_t all_unboarded  = PTHREAD_COND_INITIALIZER;
-//pthread_cond_t passengers_waiting = PTHREAD_COND_INITIALIZER;
+pthread_cond_t passengers_waiting = PTHREAD_COND_INITIALIZER;
 int can_load_now = 0;
 int can_unload_now = 0;
 
@@ -169,7 +169,6 @@ int attempt_load_available_passenger(Car* car){
             print_timestamp();
             printf(" DEBUG Car %d dequeued passenger %d\n", car->car_id, p->pass_id);
             p->assigned_car = car;
-            pthread_cond_broadcast(&can_board);
             passenger_assigned = 1;
         }
     }
@@ -205,7 +204,7 @@ void load(Car* car){
 
     int result = 0;
     while (car->onboard_count < car_capacity){
-        result = pthread_cond_timedwait(&all_boarded, &ride_lock, &deadline);
+        result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
         if (attempt_load_available_passenger(car)) {
             if(car->onboard_count == car_capacity) break;
         }
@@ -335,7 +334,8 @@ void* park_experience(void* arg){
         dequeue_passenger(&ticket_queue);
 
         enqueue_passenger(&coaster_queue, p);
-        //pthread_cond_signal(&passengers_waiting);
+        pthread_cond_signal(&all_boarded); // wake cars waiting in load()
+        pthread_cond_signal(&passengers_waiting);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id); 
         
@@ -433,6 +433,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_cond_destroy(&can_unboard);
     pthread_cond_destroy(&all_unboarded);
     pthread_cond_destroy(&car_available);
+    pthread_cond_destroy(passengers_waiting);
     //destroy semaphore used in size of ride_queue
     sem_destroy(&ride_queue_semaphore);
 }
