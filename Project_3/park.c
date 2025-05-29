@@ -260,6 +260,8 @@ void unload(Car* car){
 
 //roller coaster gets called by each car thread in launch_park
 void* roller_coaster(void* arg){
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
     Car* car = (Car*)arg;
     enqueue(&car_queue, car);
     print_queue(&car_queue);  //debug
@@ -302,6 +304,8 @@ int embark_coaster(Passenger* p){
 //semaphore count starts at global_max_coaster_line, then decrements
 //decrements count if >0, if it's 0, the thread blocks
 void* park_experience(void* arg){
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
     //need to pass as pointer for load to communicate to board
     Passenger* p = (Passenger*)arg;
     print_timestamp();
