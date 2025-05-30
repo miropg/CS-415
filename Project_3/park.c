@@ -205,7 +205,7 @@ void load(Car* car){
     int result = 0;
     while (car->onboard_count < car_capacity && simulation_running){
         attempt_load_available_passenger(car);
-        result = pthread_cond_timedwait(&all_boarded, &ride_lock, &deadline);
+        result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
         if (result == ETIMEDOUT) break;
     }
     if (car->onboard_count == 0) {
@@ -331,7 +331,7 @@ void* park_experience(void* arg){
         dequeue_passenger(&ticket_queue);
 
         enqueue_passenger(&coaster_queue, p);
-        pthread_cond_signal(&all_boarded); // wake cars waiting in load()
+        //pthread_cond_signal(&all_boarded); // wake cars waiting in load()
         pthread_cond_signal(&passengers_waiting);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id); 
