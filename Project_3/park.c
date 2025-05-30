@@ -288,8 +288,8 @@ void* roller_coaster(void* arg){
         }
         // Loop repeats: car will re-enqueue itself on next cycle
     }
-    return NULL;
-    // pthread_exit(NULL);
+    //return NULL;
+    pthread_exit(NULL);
 }
 
 int embark_coaster(Passenger* p){
@@ -342,8 +342,8 @@ void* park_experience(void* arg){
         
         embark_coaster(p);
     }
-    return NULL;
-    // pthread_exit(NULL); //all threads are done after the park hours are over
+    //return NULL;
+    pthread_exit(NULL); //all threads are done after the park hours are over
 }
 
 void launch_park(int passengers, int cars, int capacity, int wait, int ride, int park_hours,
@@ -414,14 +414,14 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_cond_broadcast(&passengers_waiting);
 
     for(int i = 0; i < passengers; i++){
-        pthread_cancel(thread_ids[i]);
+        //pthread_cancel(thread_ids[i]);
         pthread_join(thread_ids[i], NULL); // wait on our threads to rejoin main thread
         free(passenger_objects[i]);
     }
     //pthread_join(timer, NULL);
 
     for (int j = 0; j < num_cars; j++){
-        pthread_cancel(car_thread_ids[j]);
+        //pthread_cancel(car_thread_ids[j]);
 		pthread_join(car_thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
     free(thread_ids);
