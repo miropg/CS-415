@@ -92,26 +92,26 @@ void print_help() {
     printf("\nExample: ./park -n 10 -c 4 -p 6 -w 8 -r 10 -t 60\n");
 }
 
-// struct TimerArgs {
-//     int duration;
-// };
+struct TimerArgs {
+    int duration;
+};
 //for Timing the Duration of the Park
-// void* timer_thread(void* arg) {
-//     struct TimerArgs* t = (struct TimerArgs*) arg;
-//     sleep(t->duration);
-//     simulation_running = 0;
-//     print_timestamp();
-//     printf("Simulation timer ended. Closing the park.\n");
-//     // Wake up any threads waiting on condition variables
-//     // like a bell for closing, making sure threads call pthread_exit
-//     pthread_cond_broadcast(&can_board);
-//     pthread_cond_broadcast(&all_unboarded);
-//     pthread_cond_broadcast(&can_unboard);
-//     pthread_cond_broadcast(&car_available);
-//     //pthread_cond_broadcast(&passengers_waiting);
-//     free(t);
-//     return NULL;
-// }
+void* timer_thread(void* arg) {
+    struct TimerArgs* t = (struct TimerArgs*) arg;
+    sleep(t->duration);
+    simulation_running = 0;
+    print_timestamp();
+    printf("Simulation timer ended. Closing the park.\n");
+    // Wake up any threads waiting on condition variables
+    // like a bell for closing, making sure threads call pthread_exit
+    pthread_cond_broadcast(&can_board);
+    pthread_cond_broadcast(&all_unboarded);
+    pthread_cond_broadcast(&can_unboard);
+    pthread_cond_broadcast(&car_available);
+    //pthread_cond_broadcast(&passengers_waiting);
+    free(t);
+    return NULL;
+}
 // PASSENGER FUNCTIONS
 //– Called when a passenger boards the car.
 void board(Passenger* p) {
@@ -186,6 +186,7 @@ void load(Car* car){
     //printf("Car %d entering load(), coaster_queue size: %d\n", car->car_id, coaster_queue.size);
     int passenger_assigned = attempt_load_available_passenger(car);
     if (passenger_assigned) {
+        pthread_cond_broadcast(&can_board);
         print_timestamp();
         printf("Car %d invoked load()\n", car->car_id);
     }
@@ -203,8 +204,10 @@ void load(Car* car){
 
     int result = 0;
     while (car->onboard_count < car_capacity){
-        attempt_load_available_passenger(car);
-        result = pthread_cond_timedwait(&all_boarded, &ride_lock, &deadline);
+        result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
+        if (attempt_load_available_passenger(car)) {
+            if(car->onboard_count == car_capacity) break;
+        }
         if (result == ETIMEDOUT) break;
     }
     if (car->onboard_count == 0) {
@@ -260,8 +263,6 @@ void unload(Car* car){
 
 //roller coaster gets called by each car thread in launch_park
 void* roller_coaster(void* arg){
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
     Car* car = (Car*)arg;
     enqueue(&car_queue, car);
     print_queue(&car_queue);  //debug
@@ -270,11 +271,11 @@ void* roller_coaster(void* arg){
         bool can_load = !is_passenger_queue_empty(&coaster_queue) &&
                 car_queue.cars[car_queue.front] == car;
         if (can_load) {
-            currently_loading = 1;
+            //currently_loading = 1;
             dequeue(&car_queue);
             pthread_mutex_unlock(&car_selection_lock);
             load(car);
-            currently_loading = 0;
+            //currently_loading = 0;
                 // Step 3: Only ride and unload if passengers boarded
             if (car->onboard_count > 0) {
                 run(car);
@@ -288,7 +289,6 @@ void* roller_coaster(void* arg){
         }
         // Loop repeats: car will re-enqueue itself on next cycle
     }
-    //return NULL;
     pthread_exit(NULL);
 }
 
@@ -304,8 +304,6 @@ int embark_coaster(Passenger* p){
 //semaphore count starts at global_max_coaster_line, then decrements
 //decrements count if >0, if it's 0, the thread blocks
 void* park_experience(void* arg){
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
     //need to pass as pointer for load to communicate to board
     Passenger* p = (Passenger*)arg;
     print_timestamp();
@@ -328,9 +326,9 @@ void* park_experience(void* arg){
         //increments ride queue total, and blocks if line at max
         sem_wait(&ride_queue_semaphore); 
 
-        usleep(1000000);
         print_timestamp();
         printf("Passenger %d acquired a ticket\n", p->pass_id);
+        usleep(1000000);
         pthread_mutex_unlock(&ticket_booth_lock);
         dequeue_passenger(&ticket_queue);
 
@@ -342,7 +340,7 @@ void* park_experience(void* arg){
         
         embark_coaster(p);
     }
-    //return NULL;
+    free(p); //free specific passenger after park hours
     pthread_exit(NULL); //all threads are done after the park hours are over
 }
 
@@ -384,14 +382,14 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
         pthread_create(&car_thread_ids[i], NULL, roller_coaster, (void*)&all_cars[i]);
     }
     // START THE PARK (40 second default timer)
-    // struct TimerArgs* timer_args = malloc(sizeof(struct TimerArgs));
-    // timer_args->duration = park_hours;  // user-defined or default duration
+    struct TimerArgs* timer_args = malloc(sizeof(struct TimerArgs));
+    timer_args->duration = park_hours;  // user-defined or default duration
 
-    // pthread_t timer;
-    // pthread_create(&timer, NULL, timer_thread, (void*) timer_args);
+    pthread_t timer;
+    pthread_create(&timer, NULL, timer_thread, (void*) timer_args);
     //create passenger amount of threads in addition to the main thread
     //id numbers for passengser, 1, 2, 3...
-    Passenger** passenger_objects = malloc(sizeof(Passenger*) * tot_passengers);
+    Passenger** passenger_objects = malloc(sizeof(Passenger) * tot_passengers);
     //do not need to allocate mem for threads themselves, just the ids
     //pthread_create(store thread id, attr, function that runs in new thread, arg)
 	for(int i = 0; i < passengers; i++){
@@ -401,27 +399,14 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
         passenger_objects[i]->next = NULL;
         // threads enter the park when you call simulate_work on them
 		pthread_create(&thread_ids[i], NULL, park_experience, (void*)passenger_objects[i]);
-         //stagger passengers entering the park(can make random instead?)
+        usleep(100000); //stagger passengers entering the park(can make random instead?)
     }
-    sleep(park_hours);
-    simulation_running = 0;
-    print_timestamp();
-    printf("Simulation timer ended. Closing the park.\n");
+	for (int j = 0; j < passengers; ++j){
+		pthread_join(thread_ids[j], NULL); // wait on our threads to rejoin main thread
+	}
+    pthread_join(timer, NULL);
 
-    pthread_cond_broadcast(&can_board);
-    pthread_cond_broadcast(&all_boarded);
-    pthread_cond_broadcast(&all_unboarded);
-    pthread_cond_broadcast(&passengers_waiting);
-
-    for(int i = 0; i < passengers; i++){
-        //pthread_cancel(thread_ids[i]);
-        pthread_join(thread_ids[i], NULL); // wait on our threads to rejoin main thread
-        free(passenger_objects[i]);
-    }
-    //pthread_join(timer, NULL);
-
-    for (int j = 0; j < num_cars; j++){
-        //pthread_cancel(car_thread_ids[j]);
+    for (int j = 0; j < num_cars; ++j){
 		pthread_join(car_thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
     free(thread_ids);
@@ -448,7 +433,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_cond_destroy(&all_boarded);
     pthread_cond_destroy(&can_unboard);
     pthread_cond_destroy(&all_unboarded);
-    //pthread_cond_destroy(&car_available);
+    pthread_cond_destroy(&car_available);
     pthread_cond_destroy(&passengers_waiting);
     //destroy semaphore used in size of ride_queue
     sem_destroy(&ride_queue_semaphore);
@@ -483,10 +468,10 @@ int main(int argc, char *argv[]){
     //set default values if no args provided
     if (passengers < 0 && cars < 0 && capacity < 0 && wait < 0 && ride < 0) {
         printf("[Info] No arguments provided. Using default settings.\n");
-        passengers = 3;
+        passengers = 10;
         cars = 2;
-        capacity = 2;
-        wait = 20;
+        capacity = 4;
+        wait = 5;
         ride = 6;
         park_hours = 40;
     }
