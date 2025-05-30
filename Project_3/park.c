@@ -107,8 +107,8 @@ void* timer_thread(void* arg) {
     pthread_cond_broadcast(&can_board);
     pthread_cond_broadcast(&all_unboarded);
     pthread_cond_broadcast(&can_unboard);
-    pthread_cond_broadcast(&car_available);
-    //pthread_cond_broadcast(&passengers_waiting);
+    //pthread_cond_broadcast(&car_available);
+    pthread_cond_broadcast(&passengers_waiting);
     free(t);
     return NULL;
 }
@@ -119,7 +119,7 @@ void board(Passenger* p) {
     //printf("[DEBUG] Passenger %d waiting for can_board\n", p->pass_id);
     // wait until load() calls pthread_cond_broadcast(&can_board);
     // threads wake up. check struct if they were assigned a car, if so they board
-    while (!can_load_now || p->assigned_car == NULL) {
+    while (!can_load_now || p->assigned_car == NULL && simulation_running) {
         //printf("[DEBUG] Passenger %d waiting — can_load_now=%d, assigned_car=%p\n", p->pass_id, can_load_now, (void*)p->assigned_car);
         pthread_cond_wait(&can_board, &ride_lock);
     }
@@ -162,7 +162,7 @@ void unboard(Passenger* p) {
 int attempt_load_available_passenger(Car* car){ 
     int passenger_assigned = 0;
     while (!is_passenger_queue_empty(&coaster_queue) && car->onboard_count <
-            car->capacity) {
+            car->capacity && simulation_running) {
         Passenger* p = dequeue_passenger(&coaster_queue);
         if (p != NULL) { 
             //print_timestamp();
@@ -186,7 +186,7 @@ void load(Car* car){
     //printf("Car %d entering load(), coaster_queue size: %d\n", car->car_id, coaster_queue.size);
     int passenger_assigned = attempt_load_available_passenger(car);
     if (passenger_assigned) {
-        pthread_cond_broadcast(&can_board);
+        //pthread_cond_broadcast(&can_board);
         print_timestamp();
         printf("Car %d invoked load()\n", car->car_id);
     }
@@ -203,11 +203,9 @@ void load(Car* car){
     deadline.tv_sec += ride_wait;
 
     int result = 0;
-    while (car->onboard_count < car_capacity){
-        result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
-        if (attempt_load_available_passenger(car)) {
-            if(car->onboard_count == car_capacity) break;
-        }
+    while (car->onboard_count < car_capacity && simulation_running){
+        attempt_load_available_passenger(car);
+        result = pthread_cond_timedwait(&all_boarded, &ride_lock, &deadline);
         if (result == ETIMEDOUT) break;
     }
     if (car->onboard_count == 0) {
@@ -249,7 +247,7 @@ void unload(Car* car){
     pthread_cond_broadcast(&car->can_unload); //changed to car specific value
     //wait until all passengers who boarded have unboarded
 
-    while (car->unboard_count < car->onboard_count) {
+    while (car->unboard_count < car->onboard_count && simulation_running) {
         //wait until all passengers unboarded
         pthread_cond_wait(&all_unboarded, &ride_lock);
     }
@@ -271,11 +269,11 @@ void* roller_coaster(void* arg){
         bool can_load = !is_passenger_queue_empty(&coaster_queue) &&
                 car_queue.cars[car_queue.front] == car;
         if (can_load) {
-            //currently_loading = 1;
+            currently_loading = 1;
             dequeue(&car_queue);
             pthread_mutex_unlock(&car_selection_lock);
             load(car);
-            //currently_loading = 0;
+            currently_loading = 0;
                 // Step 3: Only ride and unload if passengers boarded
             if (car->onboard_count > 0) {
                 run(car);
@@ -389,7 +387,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_create(&timer, NULL, timer_thread, (void*) timer_args);
     //create passenger amount of threads in addition to the main thread
     //id numbers for passengser, 1, 2, 3...
-    Passenger** passenger_objects = malloc(sizeof(Passenger) * tot_passengers);
+    Passenger** passenger_objects = malloc(sizeof(Passenger*) * tot_passengers);
     //do not need to allocate mem for threads themselves, just the ids
     //pthread_create(store thread id, attr, function that runs in new thread, arg)
 	for(int i = 0; i < passengers; i++){
@@ -399,7 +397,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
         passenger_objects[i]->next = NULL;
         // threads enter the park when you call simulate_work on them
 		pthread_create(&thread_ids[i], NULL, park_experience, (void*)passenger_objects[i]);
-        usleep(100000); //stagger passengers entering the park(can make random instead?)
+        //stagger passengers entering the park(can make random instead?)
     }
 	for (int j = 0; j < passengers; ++j){
 		pthread_join(thread_ids[j], NULL); // wait on our threads to rejoin main thread
@@ -433,7 +431,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_cond_destroy(&all_boarded);
     pthread_cond_destroy(&can_unboard);
     pthread_cond_destroy(&all_unboarded);
-    pthread_cond_destroy(&car_available);
+    //pthread_cond_destroy(&car_available);
     pthread_cond_destroy(&passengers_waiting);
     //destroy semaphore used in size of ride_queue
     sem_destroy(&ride_queue_semaphore);
