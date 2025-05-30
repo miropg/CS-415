@@ -170,6 +170,8 @@ int attempt_load_available_passenger(Car* car){
             p->assigned_car = car;
             pthread_cond_broadcast(&can_board);
             passenger_assigned = 1;
+            printf("Car assigned passenger %d\n", p->pass_id);
+            printf("Seats filled: %d / %d\n", car->onboard_count, car->capacity);
         }
     }
     return passenger_assigned;
@@ -189,6 +191,7 @@ void load(Car* car){
         //pthread_cond_broadcast(&can_board);
         print_timestamp();
         printf("Car %d invoked load()\n", car->car_id);
+
     }
     // Special case: If there is only one total passenger and they've boarded, leave immediately
     // if (tot_passengers == 1 && car->onboard_count == 1) {
