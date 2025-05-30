@@ -168,13 +168,14 @@ void unboard(Passenger* p) {
 
 int attempt_load_available_passenger(Car* car){ 
     int passenger_assigned = 0;
-    while (!is_passenger_queue_empty(&coaster_queue) && car->onboard_count <
+    while (!is_passenger_queue_empty(&coaster_queue) && car->assigned_count <
             car->capacity && simulation_running) {
         Passenger* p = dequeue_passenger(&coaster_queue);
         if (p != NULL) { 
             //print_timestamp();
             //printf(" DEBUG Car %d dequeued passenger %d\n", car->car_id, p->pass_id);
             p->assigned_car = car;
+            car->assigned_count++;
             pthread_cond_broadcast(&can_board);
             passenger_assigned = 1;
         }
@@ -185,6 +186,7 @@ int attempt_load_available_passenger(Car* car){
 // Signals passengers to call board
 void load(Car* car){
     pthread_mutex_lock(&ride_lock);
+    car->assigned_count = 0;
     car->onboard_count = 0;
     car->unboard_count = 0;
     can_load_now = 1; // signal board() to board a passenger
