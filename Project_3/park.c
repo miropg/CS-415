@@ -204,16 +204,23 @@ void load(Car* car){
 
     int result = 0;
     while (car->onboard_count < car_capacity && simulation_running){
+        print_timestamp();
+        printf("Car %d is full with \n", car->car_id, car->onboard_count);
         attempt_load_available_passenger(car);
         if (car->onboard_count == car_capacity) {
             break;  // Car filled, ready to go
         }
         result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
-        
+        print_timestamp();
+        if (car->onboard_count == car_capacity) {
+            break;  // Car filled, ready to go
+        }
         if (result == ETIMEDOUT) {
             break;  // Ride wait time expired
         }
     }
+    print_timestamp();
+    printf("Car %d is full with \n", car->car_id, car->onboard_count);
     if (car->onboard_count == 0) {
         can_load_now = 0;
         pthread_mutex_unlock(&ride_lock);
