@@ -162,7 +162,7 @@ void unboard(Passenger* p) {
 int attempt_load_available_passenger(Car* car){ 
     int passenger_assigned = 0;
     while (!is_passenger_queue_empty(&coaster_queue) && car->onboard_count <
-            car->capacity && simulation_running) {
+            car->capacity - 1 && simulation_running) {
         Passenger* p = dequeue_passenger(&coaster_queue);
         if (p != NULL) { 
             //print_timestamp();
@@ -206,7 +206,7 @@ void load(Car* car){
     deadline.tv_sec += ride_wait;
 
     int result = 0;
-    while (car->onboard_count < car_capacity && simulation_running){
+    while (car->onboard_count < car_capacity - 1 && simulation_running){
         print_timestamp();
         printf("Car %d is full with %d \n", car->car_id, car->onboard_count);
         attempt_load_available_passenger(car);
