@@ -101,10 +101,10 @@ void* timer_thread(void* arg) {
     struct TimerArgs* t = (struct TimerArgs*) arg;
     sleep(t->duration);
     simulation_running = 0;
-    pthread_mutex_lock(print_lock);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Simulation timer ended. Cleaning up.\n");
-    pthread_mutex_unlock(print_lock);
+    pthread_mutex_unlock(&print_lock);
     // Wake up any threads waiting on condition variables
     // like a bell for closing, making sure threads call pthread_exit
     pthread_cond_broadcast(&can_board);
@@ -128,10 +128,10 @@ void board(Passenger* p) {
     }
     Car* my_car = p->assigned_car;
     if (my_car != NULL) {
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d boarded Car %d\n", p->pass_id, my_car->car_id);
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
         my_car->passenger_ids[my_car->onboard_count++] = p->pass_id;
 
         // if (my_car->onboard_count == my_car->capacity) {
@@ -151,10 +151,10 @@ void unboard(Passenger* p) {
     pthread_cond_wait(&my_car->can_unload, &ride_lock);
     
     if (my_car != NULL){
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d unboarded Car %d\n", p->pass_id, my_car->car_id);
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
         my_car->unboard_count++;
 
         int expected = (tot_passengers == 1) ? 1 : my_car->onboard_count;
@@ -194,10 +194,10 @@ void load(Car* car){
     int passenger_assigned = attempt_load_available_passenger(car);
     if (passenger_assigned) {
         //pthread_cond_broadcast(&can_board);
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d invoked load()\n", car->car_id);
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
     }
     // Special case: If there is only one total passenger and they've boarded, leave immediately
     // if (tot_passengers == 1 && car->onboard_count == 1) {
@@ -224,46 +224,46 @@ void load(Car* car){
         return;
     }
     if (result == ETIMEDOUT) {
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d done waiting, departing with %d / %d\n",
                 car->car_id, car->onboard_count, car->capacity);
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
     } else if (car->onboard_count == car->capacity){
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d is full with %d passengers\n", car->car_id, 
             car->capacity);
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
     } else {
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d boarded all %d assigned passengers, but is not full (capacity %d)\n",
             car->car_id, car->onboard_count, car->capacity);
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
     }
     can_load_now = 0;
     pthread_mutex_unlock(&ride_lock);
 }
 // – Simulates the ride duration.
 void run(Car* car){  //int car?
-    pthread_mutex_lock(print_lock);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d departed for its run\n", car->car_id);
-    pthread_mutex_unlock(print_lock);
+    pthread_mutex_unlock(&print_lock);
     sleep(ride_duration);
-    pthread_mutex_lock(print_lock);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d finished its run\n", car->car_id);
-    pthread_mutex_unlock(print_lock);
+    pthread_mutex_unlock(&print_lock);
 }
 //– Signals passengers to call unboard()
 void unload(Car* car){
     pthread_mutex_lock(&ride_lock);
-    pthread_mutex_lock(print_lock);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d invoked unload()\n", car->car_id);
-    pthread_mutex_unlock(print_lock);
+    pthread_mutex_unlock(&print_lock);
 
     car->can_unload_now = true;
     pthread_cond_broadcast(&car->can_unload); //changed to car specific value
@@ -277,19 +277,19 @@ void unload(Car* car){
     car->onboard_count = 0;
     car->can_unload_now = false;
     pthread_mutex_unlock(&ride_lock);
-    pthread_mutex_lock(print_lock);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d completed unload and will rejoin the queue.\n", car->car_id);
-    pthread_mutex_unlock(print_lock);
+    pthread_mutex_unlock(&print_lock);
 }
 
 //roller coaster gets called by each car thread in launch_park
 void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
     enqueue(&car_queue, car);
-    pthread_mutex_lock(print_lock);
+    pthread_mutex_lock(&print_lock);
     print_queue(&car_queue);  //debug
-    pthread_mutex_unlock(print_lock);
+    pthread_mutex_unlock(&print_lock);
     while (simulation_running) {
         pthread_mutex_lock(&car_selection_lock);
         bool can_load = !is_passenger_queue_empty(&coaster_queue) &&
@@ -330,38 +330,38 @@ int embark_coaster(Passenger* p){
 void* park_experience(void* arg){
     //need to pass as pointer for load to communicate to board
     Passenger* p = (Passenger*)arg;
-    pthread_mutex_lock(print_lock);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Passenger %d entered the park\n", p->pass_id);
-    pthread_mutex_unlock(print_lock);
+    pthread_mutex_unlock(&print_lock);
 
     while (simulation_running) {
         // Exploring the Park
         int explore_time = (rand() % 10) + 1; //2-5 seconds
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d is exploring the park...\n", p->pass_id);
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
         sleep(explore_time);
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d finished exploring, heading to ticket booth\n", p->pass_id);
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
         
         // Ticket booth
         enqueue_passenger(&ticket_queue, p);
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d waiting in ticket queue\n", p->pass_id);
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
         pthread_mutex_lock(&ticket_booth_lock);
         //increments ride queue total, and blocks if line at max
         sem_wait(&ride_queue_semaphore); 
 
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d acquired a ticket\n", p->pass_id);
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
         usleep(1000000);
         pthread_mutex_unlock(&ticket_booth_lock);
         dequeue_passenger(&ticket_queue);
@@ -369,10 +369,10 @@ void* park_experience(void* arg){
         enqueue_passenger(&coaster_queue, p);
         //pthread_cond_signal(&all_boarded); // wake cars waiting in load()
         pthread_cond_signal(&passengers_waiting);
-        pthread_mutex_lock(print_lock);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id); 
-        pthread_mutex_unlock(print_lock);
+        pthread_mutex_unlock(&print_lock);
         
         embark_coaster(p);
     }
@@ -446,10 +446,10 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 		pthread_join(car_thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
 
-    pthread_mutex_lock(print_lock);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Closing the park.\n");
-    pthread_mutex_unlock(print_lock);
+    pthread_mutex_unlock(&print_lock);
     for (int i = 0; i < passengers; ++i) {
         free(passenger_objects[i]);  
     }
@@ -462,6 +462,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     }
     free(all_cars);
     //destroy locks
+    pthread_mutex_destroy(&print_lock);
     pthread_mutex_destroy(&car_queue_lock);
     pthread_mutex_destroy(&ticket_booth_lock);
     pthread_mutex_destroy(&coaster_queue_lock);
