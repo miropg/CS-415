@@ -31,7 +31,7 @@ pthread_mutex_t ride_lock = PTHREAD_MUTEX_INITIALIZER;
 
 //condition variables
 pthread_cond_t can_board      = PTHREAD_COND_INITIALIZER;
-pthread_cond_t all_boarded    = PTHREAD_COND_INITIALIZER;
+//pthread_cond_t all_boarded    = PTHREAD_COND_INITIALIZER;
 pthread_cond_t can_unboard    = PTHREAD_COND_INITIALIZER;
 pthread_cond_t all_unboarded  = PTHREAD_COND_INITIALIZER;
 pthread_cond_t passengers_waiting = PTHREAD_COND_INITIALIZER;
@@ -129,9 +129,9 @@ void board(Passenger* p) {
         printf("Passenger %d boarded Car %d\n", p->pass_id, my_car->car_id);
         my_car->passenger_ids[my_car->onboard_count++] = p->pass_id;
 
-        if (my_car->onboard_count == my_car->capacity) {
-            pthread_cond_signal(&all_boarded);
-        }
+        // if (my_car->onboard_count == my_car->capacity) {
+        //     pthread_cond_signal(&all_boarded);
+        // }
     }
     pthread_mutex_unlock(&ride_lock);
     sem_post(&ride_queue_semaphore);
@@ -205,8 +205,14 @@ void load(Car* car){
     int result = 0;
     while (car->onboard_count < car_capacity && simulation_running){
         attempt_load_available_passenger(car);
+        if (car->onboard_count == car_capacity) {
+            break;  // Car filled, ready to go
+        }
         result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
-        if (result == ETIMEDOUT) break;
+        
+        if (result == ETIMEDOUT) {
+            break;  // Ride wait time expired
+        }
     }
     if (car->onboard_count == 0) {
         can_load_now = 0;
@@ -429,7 +435,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     //pthread_mutex_destroy(&load_lock);
     //destroy variables & booleans
     pthread_cond_destroy(&can_board);
-    pthread_cond_destroy(&all_boarded);
+    //pthread_cond_destroy(&all_boarded);
     pthread_cond_destroy(&can_unboard);
     pthread_cond_destroy(&all_unboarded);
     //pthread_cond_destroy(&car_available);
