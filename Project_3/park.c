@@ -267,7 +267,7 @@ void* roller_coaster(void* arg){
     while (simulation_running) {
         pthread_mutex_lock(&car_selection_lock);
         bool can_load = !is_passenger_queue_empty(&coaster_queue) &&
-                car_queue.cars[car_queue.front] == car;
+                car_queue.cars[car_queue.front] == car && currently_loading == 0;
         if (can_load) {
             currently_loading = 1;
             dequeue(&car_queue);
