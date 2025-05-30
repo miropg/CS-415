@@ -415,8 +415,8 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 
     for(int i = 0; i < passengers; i++){
         pthread_cancel(thread_ids[i]);
-        free(passenger_objects[i]);
         pthread_join(thread_ids[i], NULL); // wait on our threads to rejoin main thread
+        free(passenger_objects[i]);
     }
     //pthread_join(timer, NULL);
 
