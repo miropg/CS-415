@@ -338,7 +338,7 @@ void* park_experience(void* arg){
         
         embark_coaster(p);
     }
-    free(p); //free specific passenger after park hours
+    //free(p); //free specific passenger after park hours
     pthread_exit(NULL); //all threads are done after the park hours are over
 }
 
@@ -409,12 +409,11 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 	}
     print_timestamp();
     printf("Closing the park.\n");
+    for (int i = 0; i < passengers; ++i) {
+        free(passenger_objects[i]);  
+    }
     free(thread_ids);
     free(car_thread_ids);
-    //not necessary if we free(p) individual threads in park_exp
-    // for (int i = 0; i < tot_passengers; i++) {
-    //     free(passenger_objects[i]);
-    // }
     free(passenger_objects);
 
     for (int i = 0; i < num_cars; i++){
@@ -468,10 +467,10 @@ int main(int argc, char *argv[]){
     //set default values if no args provided
     if (passengers < 0 && cars < 0 && capacity < 0 && wait < 0 && ride < 0) {
         printf("[Info] No arguments provided. Using default settings.\n");
-        passengers = 10;
+        passengers = 3;
         cars = 2;
-        capacity = 4;
-        wait = 5;
+        capacity = 2;
+        wait = 20;
         ride = 6;
         park_hours = 40;
     }
