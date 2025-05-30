@@ -205,26 +205,19 @@ void load(Car* car){
     int result = 0;
     while (car->onboard_count < car_capacity && simulation_running){
         attempt_load_available_passenger(car);
-
-        if (car->onboard_count == car_capacity) {
-            break; // early exit: car is now full
-        }
-        // Wait for EITHER new arrivals or car to become full
-        pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
-        if (car->onboard_count == car_capacity) break;
-
-        pthread_cond_timedwait(&all_boarded, &ride_lock, &deadline);
-        if (car->onboard_count == car_capacity) break;
-        struct timespec now;
-        clock_gettime(CLOCK_REALTIME, &now);
-        if (now.tv_sec >= deadline.tv_sec) break;
+        result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
+        if (result == ETIMEDOUT) break;
     }
     if (car->onboard_count == 0) {
         can_load_now = 0;
         pthread_mutex_unlock(&ride_lock);
         return;
     }
-    if (car->onboard_count == car->capacity){
+    if (result == ETIMEDOUT) {
+        print_timestamp();
+        printf("Car %d done waiting, departing with %d / %d\n",
+                car->car_id, car->onboard_count, car->capacity);
+    } else if (car->onboard_count == car->capacity){
         print_timestamp();
         printf("Car %d is full with %d passengers\n", car->car_id, 
             car->capacity);
