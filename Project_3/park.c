@@ -100,6 +100,8 @@ void* timer_thread(void* arg) {
     struct TimerArgs* t = (struct TimerArgs*) arg;
     sleep(t->duration);
     simulation_running = 0;
+    print_timestamp();
+    printf("Simulation timer ended. Cleaning up.\n");
     // Wake up any threads waiting on condition variables
     // like a bell for closing, making sure threads call pthread_exit
     pthread_cond_broadcast(&can_board);
@@ -406,7 +408,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 		pthread_join(car_thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
     print_timestamp();
-    printf("Simulation timer ended. Closing the park.\n");
+    printf("Closing the park.\n");
     free(thread_ids);
     free(car_thread_ids);
     //not necessary if we free(p) individual threads in park_exp
