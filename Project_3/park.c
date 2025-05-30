@@ -483,10 +483,10 @@ int main(int argc, char *argv[]){
     //set default values if no args provided
     if (passengers < 0 && cars < 0 && capacity < 0 && wait < 0 && ride < 0) {
         printf("[Info] No arguments provided. Using default settings.\n");
-        passengers = 10;
+        passengers = 3;
         cars = 2;
-        capacity = 4;
-        wait = 5;
+        capacity = 2;
+        wait = 20;
         ride = 6;
         park_hours = 40;
     }
