@@ -129,9 +129,9 @@ void board(Passenger* p) {
         printf("Passenger %d boarded Car %d\n", p->pass_id, my_car->car_id);
         my_car->passenger_ids[my_car->onboard_count++] = p->pass_id;
 
-        if (my_car->onboard_count == my_car->capacity) {
-            pthread_cond_signal(&all_boarded);
-        }
+        // if (my_car->onboard_count == my_car->capacity) {
+        //     pthread_cond_signal(&all_boarded);
+        // }
     }
     pthread_mutex_unlock(&ride_lock);
     sem_post(&ride_queue_semaphore);
@@ -205,6 +205,7 @@ void load(Car* car){
     int result = 0;
     while (car->onboard_count < car_capacity && simulation_running){
         attempt_load_available_passenger(car);
+        if (car->onboard_count == car_capacity) break;
         result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
         if (result == ETIMEDOUT) break;
     }
