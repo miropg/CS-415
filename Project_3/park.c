@@ -208,7 +208,7 @@ void load(Car* car){
     int result = 0;
     while (car->onboard_count < car_capacity && simulation_running){
         print_timestamp();
-        printf("Car %d is full with \n", car->car_id, car->onboard_count);
+        printf("Car %d is full with %d \n", car->car_id, car->onboard_count);
         attempt_load_available_passenger(car);
         if (car->onboard_count == car_capacity) {
             break;  // Car filled, ready to go
