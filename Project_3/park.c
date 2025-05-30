@@ -119,7 +119,7 @@ void board(Passenger* p) {
     //printf("[DEBUG] Passenger %d waiting for can_board\n", p->pass_id);
     // wait until load() calls pthread_cond_broadcast(&can_board);
     // threads wake up. check struct if they were assigned a car, if so they board
-    while (!can_load_now || p->assigned_car == NULL && simulation_running) {
+    while ((!can_load_now || p->assigned_car == NULL) && simulation_running) {
         //printf("[DEBUG] Passenger %d waiting — can_load_now=%d, assigned_car=%p\n", p->pass_id, can_load_now, (void*)p->assigned_car);
         pthread_cond_wait(&can_board, &ride_lock);
     }
