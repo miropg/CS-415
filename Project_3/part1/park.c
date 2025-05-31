@@ -185,6 +185,7 @@ int attempt_load_available_passenger(Car* car){
 // ROLLER COASTER FUNCTIONS
 // Signals passengers to call board
 void load(Car* car){
+    bool solo_early_departure = false;
     pthread_mutex_lock(&ride_lock);
     car->assigned_count = 0;
     car->onboard_count = 0;
@@ -223,6 +224,7 @@ void load(Car* car){
             print_timestamp();
             printf("Only one passenger — Car %d departing immediately\n", car->car_id);
             pthread_mutex_unlock(&print_lock);
+            solo_early_departure = true;
             break;
         }
         if (result == ETIMEDOUT) break;
@@ -232,7 +234,12 @@ void load(Car* car){
         pthread_mutex_unlock(&ride_lock);
         return;
     }
-    if (result == ETIMEDOUT) {
+    if (solo_early_departure) {
+        can_load_now = 0;
+        pthread_mutex_unlock(&ride_lock);
+        return;
+    }
+    else if (result == ETIMEDOUT) {
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d done waiting, departing with %d / %d\n",
