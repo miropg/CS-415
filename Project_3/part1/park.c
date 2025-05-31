@@ -239,7 +239,7 @@ void load(Car* car){
         pthread_mutex_unlock(&ride_lock);
         return;
     }
-    else if (result == ETIMEDOUT) {
+    if (result == ETIMEDOUT) {
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d done waiting, departing with %d / %d\n",
