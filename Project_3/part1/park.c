@@ -216,14 +216,14 @@ void load(Car* car){
     int result = 0;
     while (car->onboard_count < car_capacity && simulation_running){
         attempt_load_available_passenger(car);
-        if (car->onboard_count == car_capacity){
+        if (car->onboard_count == car_capacity) break;
+        if (tot_passengers == 1 && car->onboard_count == 1){
             pthread_mutex_lock(&print_lock);
             print_timestamp();
             printf("Only one passenger — Car %d departing immediately\n", car->car_id);
             pthread_mutex_unlock(&print_lock);
             break;
         }
-        if (tot_passengers == 1 && car->onboard_count == 1) break;
         result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
         if (result == ETIMEDOUT) break;
     }
