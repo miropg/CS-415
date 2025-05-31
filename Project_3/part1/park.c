@@ -217,6 +217,7 @@ void load(Car* car){
     while (car->onboard_count < car_capacity && simulation_running){
         attempt_load_available_passenger(car);
         if (car->onboard_count == car_capacity) break;
+        result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
         if (tot_passengers == 1 && car->onboard_count == 1){
             pthread_mutex_lock(&print_lock);
             print_timestamp();
@@ -224,7 +225,6 @@ void load(Car* car){
             pthread_mutex_unlock(&print_lock);
             break;
         }
-        result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
         if (result == ETIMEDOUT) break;
     }
     if (car->onboard_count == 0) {
