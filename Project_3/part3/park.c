@@ -355,9 +355,7 @@ void board(Passenger* p) {
             clock_gettime(CLOCK_MONOTONIC, &now);
             double waited = (now.tv_sec  - p->ride_queue_enter.tv_sec)
                           + (now.tv_nsec - p->ride_queue_enter.tv_nsec) / 1e9;
-            fprintf(stderr,
-            "[DEBUG] Passenger %d waited %.3f seconds in ride queue\n",
-            p->pass_id, waited);
+
             pthread_mutex_lock(&stats_lock);
             sum_wait_ride_queue += waited;
             count_wait_ride    += 1;
