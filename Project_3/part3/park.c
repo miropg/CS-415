@@ -174,7 +174,7 @@ void* monitor_timer_thread(void* arg) {
                     n = snprintf(p, rem, ", ");
                     p += n; rem -= n;
                 }
-                n = snprintf(p, rem, "%d", cur->pass_id);
+                n = snprintf(p, rem, "Passenger %d", cur->pass_id);
                 p += n; rem -= n;
                 first = false;
                 cur = cur->next;
