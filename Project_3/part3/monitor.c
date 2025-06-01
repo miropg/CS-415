@@ -14,17 +14,21 @@ void monitor_main(int pipe_fd) {
         return;
     }
     char linebuf[512];
-    // 2) Read one line at a time until EOF
+    int first_line = 1;
+    // Read one line at a time until EOF
     while (fgets(linebuf, sizeof(linebuf), pipe_stream) != NULL) {
-        // 3) Remove trailing newline (so we don’t end up with double line breaks)
+        // Remove trailing newline (so we don’t end up with double line breaks)
         linebuf[strcspn(linebuf, "\n")] = '\0';
 
-        // 4) Echo the line with a “[Monitor] ” prefix
-        printf("[Monitor] %s\n", linebuf);
+        if (first_line) {
+            printf("[Monitor] %s\n", linebuf);
+            first_line = 0;
+        } else {
+            printf("%s\n", linebuf);
+        }
         fflush(stdout);
     }
-
-    // 5) Once fgets() returns NULL, the parent has closed mon_pipe[1] → EOF
+    //Once fgets() returns NULL, the parent has closed mon_pipe[1] -> EOF
     //    We close our FILE* and exit.
     fclose(pipe_stream);
 }

@@ -428,6 +428,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
         all_cars[i].capacity = car_capacity;
         all_cars[i].onboard_count = 0;
         all_cars[i].unboard_count = 0;
+        all_cars[i].assigned_count = 0;
         all_cars[i].passenger_ids = malloc(sizeof(int) * car_capacity);
         pthread_cond_init(&all_cars[i].can_unload, NULL);
         all_cars[i].can_unload_now = false;

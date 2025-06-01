@@ -641,15 +641,17 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_t* car_thread_ids = (pthread_t *)malloc(sizeof(pthread_t) * num_cars); //threads for cars too
     pthread_t* thread_ids = (pthread_t *)malloc(sizeof(pthread_t) * tot_passengers);//array of threads
     
-    Car* all_cars = malloc(sizeof(Car) * num_cars);
+    all_cars = malloc(sizeof(Car) * num_cars);
     for (int i = 0; i < num_cars; i++) {
         all_cars[i].car_id = i + 1;
         all_cars[i].capacity = car_capacity;
         all_cars[i].onboard_count = 0;
         all_cars[i].unboard_count = 0;
+        all_cars[i].assigned_count = 0;
         all_cars[i].passenger_ids = malloc(sizeof(int) * car_capacity);
         pthread_cond_init(&all_cars[i].can_unload, NULL);
         all_cars[i].can_unload_now = false;
+        all_cars[i].state = WAITING;
         pthread_create(&car_thread_ids[i], NULL, roller_coaster, (void*)&all_cars[i]);
     }
     // START THE PARK (40 second default timer)
