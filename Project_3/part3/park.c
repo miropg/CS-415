@@ -268,8 +268,8 @@ void* monitor_timer_thread(void* arg) {
                         "Total simulation time: %02d:%02d:%02d\n"
                         "Total passengers served: %d\n"
                         "Total rides completed: %d\n"
-                        "Average wait time in ticket queue: %.1f seconds\n"
-                        "Average wait time in ride queue: %.1f seconds\n"
+                        "Average wait time in ticket queue: %.3f seconds\n"
+                        "Average wait time in ride queue: %.3f seconds\n"
                         "Average car utilization: %.1f%% (%.1f/%d passengers per ride)\n\n",
                         hh, mm, ss,
                         served,
