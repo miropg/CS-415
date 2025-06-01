@@ -591,11 +591,11 @@ void* park_experience(void* arg){
         pthread_mutex_unlock(&print_lock);
         
         // Ticket booth
+        enqueue_passenger(&ticket_queue, p);
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d waiting in ticket queue\n", p->pass_id);
         pthread_mutex_unlock(&print_lock);
-        enqueue_passenger(&ticket_queue, p);
         pthread_mutex_lock(&ticket_booth_lock);
         //increments ride queue total, and blocks if line at max
         sem_wait(&ride_queue_semaphore); 
@@ -608,14 +608,14 @@ void* park_experience(void* arg){
         pthread_mutex_unlock(&ticket_booth_lock);
         dequeue_passenger(&ticket_queue);
 
+        enqueue_passenger(&coaster_queue, p);
+        //pthread_cond_signal(&all_boarded); // wake cars waiting in load()
+        pthread_cond_signal(&passengers_waiting);
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id); 
         pthread_mutex_unlock(&print_lock);
-        enqueue_passenger(&coaster_queue, p);
-        //pthread_cond_signal(&all_boarded); // wake cars waiting in load()
-        pthread_cond_signal(&passengers_waiting);
-         
+        
         embark_coaster(p);
     }
     //free(p); //free specific passenger after park hours
