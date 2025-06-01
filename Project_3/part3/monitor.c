@@ -8,6 +8,7 @@
 //int pipe_fd is the read end of a UNIX pipe
 // In monitor_main, replace its loop with something like:
 void monitor_main(int pipe_fd) {
+    setvbuf(stdout, NULL, _IOLBF, 0);
     FILE *pipe_stream = fdopen(pipe_fd, "r");
     if (!pipe_stream) {
         perror("monitor_main: fdopen");

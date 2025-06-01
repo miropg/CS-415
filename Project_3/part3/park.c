@@ -225,7 +225,9 @@ void* monitor_timer_thread(void* arg) {
         write(mon_pipe[1], block, total_len);
 
         // 7) Bump the next_wake by exactly 'interval' seconds
-        next_wake.tv_sec += interval;
+        do {
+            next_wake.tv_sec += interval;
+        } while (next_wake.tv_sec <= now.tv_sec);
     }
 
     // park is closed, so print FINAL STATISTICS (also all at once) —
