@@ -38,6 +38,7 @@ pthread_mutex_t ticket_booth_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t coaster_queue_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t ride_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t print_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t stats_lock = PTHREAD_MUTEX_INITIALIZER;
 //pthread_mutex_t load_lock = PTHREAD_MUTEX_INITIALIZER;
 
 //condition variables
@@ -59,23 +60,6 @@ int num_cars;
 int car_capacity;
 int ride_wait;
 int ride_duration;
-/*
-pthread_t *thread_ids;
-pthread_mutex_t counter_lock;
-pthread_mutex_t pipe_lock;
-int counter = 0;
-int pipe_fd[2];		// our pipe :)
-*/
-// void beginning_stats(int passengers, int cars, int capacity, int wait, int ride, int hours){
-//     //printf("[Monitor] Simulation started with parameters:\n");
-//     printf("- Number of passenger threads: %d\n", passengers);
-//     printf("- Number of cars: %d\n", cars);
-//     printf("- Capacity per car: %d\n", capacity);
-//     printf("- Park exploration time: 1-10 seconds\n");
-//     printf("- Car waiting period: %d seconds\n", wait);
-//     printf("- Ride duration: %d seconds\n", ride);
-//     printf("- Total simulation time: %d seconds\n", hours);
-// }
 
 //ALL MONITOR FUNCTIONS
 void beginning_stats_to_pipe(int passengers,
@@ -244,8 +228,19 @@ void* monitor_timer_thread(void* arg) {
         next_wake.tv_sec += interval;
     }
 
-    // ——— Park is closed, so print FINAL STATISTICS (also all at once) ———
+    // park is closed, so print FINAL STATISTICS (also all at once) —
     {
+         // grab stats_lock before reading any of the shared counters
+        pthread_mutex_lock(&stats_lock);
+        int served       = total_passengers_ridden;
+        int rides_done   = total_rides_completed;
+        double sum_ticket = sum_wait_ticket_queue;
+        int cnt_ticket    = count_wait_ticket;
+        double sum_ride   = sum_wait_ride_queue;
+        int cnt_ride      = count_wait_ride;
+        int capacity      = car_capacity;
+        pthread_mutex_unlock(&stats_lock);
+
         struct timespec final_now;
         clock_gettime(CLOCK_MONOTONIC, &final_now);
         time_t elapsed_final = final_now.tv_sec - start_time.tv_sec;
@@ -253,28 +248,37 @@ void* monitor_timer_thread(void* arg) {
         int mm = (elapsed_final % 3600) / 60;
         int ss = elapsed_final % 60;
 
+        // compute averages
+        double avg_ticket_wait = (cnt_ticket > 0)
+                                    ? (sum_ticket / cnt_ticket)
+                                    : 0.0;
+        double avg_ride_wait   = (cnt_ride > 0)
+                                    ? (sum_ride   / cnt_ride)
+                                    : 0.0;
+        double avg_pass_per_ride = (rides_done > 0)
+                                    ? (double)served / rides_done
+                                    : 0.0;
+        double utilization_pct  = (capacity > 0 && rides_done > 0)
+                                    ? (avg_pass_per_ride / capacity) * 100.0
+                                    : 0.0;
+
         char final_block[512];
         int m = snprintf(final_block, sizeof(final_block),
-                         "FINAL STATISTICS:\n"
-                         "Total simulation time: %02d:%02d:%02d\n"
-                         "Total passengers served: %d\n"
-                         "Total rides completed: %d\n"
-                         "Average wait time in ticket queue: %.1f seconds\n"
-                         "Average wait time in ride queue: %.1f seconds\n"
-                         "Average car utilization: %.1f%% (%.1f/%d passengers per ride)\n\n",
-                         hh, mm, ss,
-                         total_passengers_ridden,
-                         total_rides_completed,
-                         (count_wait_ticket > 0 ? sum_wait_ticket_queue / count_wait_ticket : 0.0),
-                         (count_wait_ride   > 0 ? sum_wait_ride_queue   / count_wait_ride   : 0.0),
-                         (total_rides_completed > 0
-                              ? ((double)total_passengers_ridden /
-                                 ((double)total_rides_completed * (double)car_capacity)) * 100.0
-                              : 0.0),
-                         (total_rides_completed > 0
-                              ? ((double)total_passengers_ridden / (double)total_rides_completed)
-                              : 0.0),
-                         car_capacity);
+                        "FINAL STATISTICS:\n"
+                        "Total simulation time: %02d:%02d:%02d\n"
+                        "Total passengers served: %d\n"
+                        "Total rides completed: %d\n"
+                        "Average wait time in ticket queue: %.1f seconds\n"
+                        "Average wait time in ride queue: %.1f seconds\n"
+                        "Average car utilization: %.1f%% (%.1f/%d passengers per ride)\n\n",
+                        hh, mm, ss,
+                        served,
+                        rides_done,
+                        avg_ticket_wait,
+                        avg_ride_wait,
+                        utilization_pct,
+                        avg_pass_per_ride,
+                        capacity);
 
         write(mon_pipe[1], final_block, m);
     }
@@ -345,6 +349,18 @@ void board(Passenger* p) {
     }
     Car* my_car = p->assigned_car;
     if (my_car != NULL) {
+        // ── record how long we sat in the ride‐queue ──
+        {
+            struct timespec now;
+            clock_gettime(CLOCK_MONOTONIC, &now);
+            double waited = (now.tv_sec  - p->ride_queue_enter.tv_sec)
+                          + (now.tv_nsec - p->ride_queue_enter.tv_nsec) / 1e9;
+
+            pthread_mutex_lock(&stats_lock);
+            sum_wait_ride_queue += waited;
+            count_wait_ride    += 1;
+            pthread_mutex_unlock(&stats_lock);
+        }
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d boarded Car %d\n", p->pass_id, my_car->car_id);
@@ -368,6 +384,9 @@ void unboard(Passenger* p) {
     pthread_cond_wait(&my_car->can_unload, &ride_lock);
     
     if (my_car != NULL){
+        pthread_mutex_lock(&stats_lock);
+        total_passengers_ridden += 1;
+        pthread_mutex_unlock(&stats_lock);
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d unboarded Car %d\n", p->pass_id, my_car->car_id);
@@ -512,6 +531,10 @@ void unload(Car* car){
         //wait until all passengers unboarded
         pthread_cond_wait(&all_unboarded, &ride_lock);
     }
+    pthread_mutex_lock(&stats_lock);
+    total_rides_completed += 1;
+    pthread_mutex_unlock(&stats_lock);
+
     car->unboard_count = 0; //reset after all passengers exited
     car->onboard_count = 0;
     car->can_unload_now = false;
@@ -590,8 +613,11 @@ void* park_experience(void* arg){
         printf("Passenger %d finished exploring, heading to ticket booth\n", p->pass_id);
         pthread_mutex_unlock(&print_lock);
         
+        // record the moment we joined the ticket line:
+        clock_gettime(CLOCK_MONOTONIC, &p->ticket_queue_enter);
         // Ticket booth
         enqueue_passenger(&ticket_queue, p);
+    
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d waiting in ticket queue\n", p->pass_id);
@@ -599,7 +625,18 @@ void* park_experience(void* arg){
         pthread_mutex_lock(&ticket_booth_lock);
         //increments ride queue total, and blocks if line at max
         sem_wait(&ride_queue_semaphore); 
+        // now compute how long we waited in ticket queue:
+        {
+            struct timespec now;
+            clock_gettime(CLOCK_MONOTONIC, &now);
+            double waited = (now.tv_sec  - p->ticket_queue_enter.tv_sec)
+                        + (now.tv_nsec - p->ticket_queue_enter.tv_nsec) / 1e9;
 
+            pthread_mutex_lock(&stats_lock);
+            sum_wait_ticket_queue += waited;
+            count_wait_ticket    += 1;
+            pthread_mutex_unlock(&stats_lock);
+        }
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d acquired a ticket\n", p->pass_id);
@@ -608,6 +645,8 @@ void* park_experience(void* arg){
         pthread_mutex_unlock(&ticket_booth_lock);
         dequeue_passenger(&ticket_queue);
 
+        // record “enter ride queue” timestamp:
+        clock_gettime(CLOCK_MONOTONIC, &p->ride_queue_enter);
         enqueue_passenger(&coaster_queue, p);
         //pthread_cond_signal(&all_boarded); // wake cars waiting in load()
         pthread_cond_signal(&passengers_waiting);
@@ -685,7 +724,6 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 		pthread_join(thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
     pthread_join(timer, NULL);
-
     for (int j = 0; j < num_cars; ++j){
 		pthread_join(car_thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
@@ -712,6 +750,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_mutex_destroy(&coaster_queue_lock);
     pthread_mutex_destroy(&ride_lock);
     pthread_mutex_destroy(&car_selection_lock);
+    pthread_mutex_destroy(&stats_lock);
     //pthread_mutex_destroy(&load_lock);
     //destroy variables & booleans
     pthread_cond_destroy(&can_board);
@@ -802,28 +841,4 @@ int main(int argc, char *argv[]){
 
     return 0;
 }
-/* lab code
-	pthread_mutex_lock(&pipe_lock);	// lock the critical section to prevent race condition!
-	char message[100];
-    snprintf(message, sizeof(message), "Thread %d finished work, counter = %d\n", *numbers, counter);
-    write(pipe_fd[1], message, strlen(message)); 	// write to the pipe	
-    pthread_mutex_unlock(&pipe_lock);	
 
-    pthread_mutex_init(&counter_lock, NULL);		// initialize the lock
-	pthread_mutex_init(&pipe_lock, NULL);		// initialize the lock
-    if (pipe(pipe_fd) == -1) {			// init the pipe!
-        perror("pipe failed");
-        exit(EXIT_FAILURE);
-    }
-
-    close(pipe_fd[1]);		// close write end of pipe
-	char buffer[100];
-    ssize_t bytes_read;
-    while ((bytes_read = read(pipe_fd[0], buffer, sizeof(buffer))) > 0)
-        fwrite(buffer, 1, bytes_read, stdout);
-
-	pthread_mutex_destroy(&counter_lock);
-	pthread_mutex_destroy(&pipe_lock);
-	close(pipe_fd[0]);			// close read end
-    free(thread_ids);
-    */

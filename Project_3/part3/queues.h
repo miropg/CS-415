@@ -46,6 +46,8 @@ typedef struct Passenger {
     int pass_id;
     Car* assigned_car;
     struct Passenger* next;
+    struct timespec ticket_queue_enter; 
+    struct timespec ride_queue_enter;
 } Passenger;
 
 typedef struct {
