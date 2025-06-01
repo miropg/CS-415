@@ -796,7 +796,7 @@ int main(int argc, char *argv[]){
 
     launch_park(passengers, cars, capacity, wait, ride, park_hours, max_coaster_line);
 
-    close(mon_pipe[1]);
+    //close(mon_pipe[1]);
     // Wait for timer thread to finish (it will exit once simulation_running == false):
     pthread_join(timer_tid, NULL);
 
