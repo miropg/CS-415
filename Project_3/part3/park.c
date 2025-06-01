@@ -143,8 +143,7 @@ void* monitor_timer_thread(void* arg) {
         char buf[256];
 
         // 2) “System State at HH:MM:SS”
-        snprintf(buf, sizeof(buf),
-                 "System State at %02d:%02d:%02d\n", hh, mm, ss);
+        snprintf(buf, sizeof(buf),"\nSystem State at %02d:%02d:%02d\n", hh, mm, ss);
         write(mon_pipe[1], buf, strlen(buf));
 
         // 3) Snapshot ticket_queue under its mutex
@@ -255,7 +254,7 @@ void* monitor_timer_thread(void* arg) {
                  "Total rides completed: %d\n"
                  "Average wait time in ticket queue: %.1f seconds\n"
                  "Average wait time in ride queue: %.1f seconds\n"
-                 "Average car utilization: %.1f%% (%.1f/%d passengers per ride)\n",
+                 "Average car utilization: %.1f%% (%.1f/%d passengers per ride)\n\n",
                  hh, mm, ss,
                  total_passengers_ridden,
                  total_rides_completed,
@@ -512,19 +511,19 @@ void unload(Car* car){
     car->state = WAITING;
 
     pthread_mutex_unlock(&ride_lock);
-    pthread_mutex_lock(&print_lock);
-    print_timestamp();
-    printf("Car %d completed unload and will rejoin the queue.\n", car->car_id);
-    pthread_mutex_unlock(&print_lock);
+    //pthread_mutex_lock(&print_lock);
+    //print_timestamp();
+    //printf("Car %d completed unload and will rejoin the queue.\n", car->car_id);
+    //pthread_mutex_unlock(&print_lock);
 }
 
 //roller coaster gets called by each car thread in launch_park
 void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
     enqueue(&car_queue, car);
-    pthread_mutex_lock(&print_lock);
-    print_queue(&car_queue);  //debug
-    pthread_mutex_unlock(&print_lock);
+    // pthread_mutex_lock(&print_lock);
+    // print_queue(&car_queue);  //debug
+    // pthread_mutex_unlock(&print_lock);
     while (simulation_running) {
         pthread_mutex_lock(&car_selection_lock);
         bool can_load = !is_passenger_queue_empty(&coaster_queue) &&
