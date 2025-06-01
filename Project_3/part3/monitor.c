@@ -16,8 +16,8 @@ void monitor_main(int pipe_fd) {
 
     char bigbuf[4096];
     while (fgets(bigbuf, sizeof(bigbuf), pipe_stream)) {
-        fprintf(stderr, "%s", bigbuf);
-        fflush(stderr);
+        fputs(bigbuf, stdout);
+        fflush(stdout);
     }
     fclose(pipe_stream);
 }
