@@ -151,7 +151,7 @@ void* monitor_timer_thread(void* arg) {
                     n = snprintf(p, rem, ", ");
                     p += n; rem -= n;
                 }
-                n = snprintf(p, rem, "%d", cur->pass_id);
+                n = snprintf(p, rem, "Passenger %d", cur->pass_id);
                 p += n; rem -= n;
                 first = false;
                 cur = cur->next;
@@ -355,7 +355,9 @@ void board(Passenger* p) {
             clock_gettime(CLOCK_MONOTONIC, &now);
             double waited = (now.tv_sec  - p->ride_queue_enter.tv_sec)
                           + (now.tv_nsec - p->ride_queue_enter.tv_nsec) / 1e9;
-
+            fprintf(stderr,
+            "[DEBUG] Passenger %d waited %.3f seconds in ride queue\n",
+            p->pass_id, waited);
             pthread_mutex_lock(&stats_lock);
             sum_wait_ride_queue += waited;
             count_wait_ride    += 1;
