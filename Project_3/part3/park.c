@@ -14,7 +14,6 @@
 static int mon_pipe[2];
 static time_t beginning_time;
 void* monitor_timer_thread(void* arg);
-int coaster_waiting_count = 0;
 // Pointer to the array of all Car structs (allocated in launch_ark)
 Car *all_cars;
 
@@ -53,7 +52,7 @@ int can_unload_now = 0;
 // ticket -> ride queue variables
 sem_t ride_queue_semaphore;  // replaces semaphore_total
 int global_max_coaster_line;
-
+int coaster_waiting_count = 0;
 // Global simulation parameters (initialized in launch_park)
 int tot_passengers;
 int num_cars;
@@ -87,7 +86,6 @@ void beginning_stats_to_pipe(int passengers,
              "- Capacity per car: %d\n", capacity);
     write(mon_pipe[1], buf, strlen(buf));
 
-    // The “Park exploration time” line was hard‐coded, so send that as well:
     snprintf(buf, sizeof(buf),
              "- Park exploration time: 1-10 seconds\n");
     write(mon_pipe[1], buf, strlen(buf));
