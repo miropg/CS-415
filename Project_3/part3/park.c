@@ -14,6 +14,7 @@
 static int mon_pipe[2];
 static time_t beginning_time;
 void* monitor_timer_thread(void* arg);
+
 // Pointer to the array of all Car structs (allocated in launch_ark)
 Car *all_cars;
 
@@ -52,7 +53,7 @@ int can_unload_now = 0;
 // ticket -> ride queue variables
 sem_t ride_queue_semaphore;  // replaces semaphore_total
 int global_max_coaster_line;
-int coaster_waiting_count = 0;
+
 // Global simulation parameters (initialized in launch_park)
 int tot_passengers;
 int num_cars;
@@ -86,6 +87,7 @@ void beginning_stats_to_pipe(int passengers,
              "- Capacity per car: %d\n", capacity);
     write(mon_pipe[1], buf, strlen(buf));
 
+    // The “Park exploration time” line was hard‐coded, so send that as well:
     snprintf(buf, sizeof(buf),
              "- Park exploration time: 1-10 seconds\n");
     write(mon_pipe[1], buf, strlen(buf));
@@ -111,20 +113,15 @@ void* monitor_timer_thread(void* arg) {
     int interval = *((int*)arg);
     free(arg);
 
-    // 1) Record the moment the simulation started as our “base” timestamp.
-    //    (Must have been set in launch_park via clock_gettime(&start_time, ...).)
-    struct timespec base = start_time;
-    int count = 1;  // We’ll wake at base + interval, then base + 2*interval, etc.
-
-    // 2) Compute the first wake time = base + (1 * interval)
-    struct timespec next_wake = base;
-    next_wake.tv_sec += (interval * count);
+    struct timespec next_wake;
+    clock_gettime(CLOCK_MONOTONIC, &next_wake);
+    next_wake.tv_sec += interval;
 
     while (simulation_running) {
-        // Sleep until exactly “base + count*interval”
+        // Sleep until the exact “next_wake” (absolute time)
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_wake, NULL);
 
-        // — Snap current time and compute hh:mm:ss since start_time —
+        // Snap current time
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);
         time_t elapsed_sec = now.tv_sec - start_time.tv_sec;
@@ -132,7 +129,7 @@ void* monitor_timer_thread(void* arg) {
         int mm = (elapsed_sec % 3600) / 60;
         int ss = elapsed_sec % 60;
 
-        // — Build the snapshot block in a local buffer —
+        // We’ll accumulate the entire snapshot into 'block'
         char block[4096];
         char* p = block;
         int rem = sizeof(block);
@@ -141,7 +138,7 @@ void* monitor_timer_thread(void* arg) {
         int n = snprintf(p, rem, "\nSystem State at %02d:%02d:%02d\n", hh, mm, ss);
         p += n; rem -= n;
 
-        // 2) Ticket Queue contents
+        // 2) Ticket Queue
         pthread_mutex_lock(ticket_queue.lock);
         {
             n = snprintf(p, rem, "Ticket Queue: [");
@@ -164,8 +161,7 @@ void* monitor_timer_thread(void* arg) {
         }
         pthread_mutex_unlock(ticket_queue.lock);
 
-        // 3) Ride Queue contents
-        //    We only print passengers still waiting (assigned_car == NULL).
+        // 3) Ride Queue
         pthread_mutex_lock(coaster_queue.lock);
         {
             n = snprintf(p, rem, "Ride Queue: [");
@@ -174,15 +170,13 @@ void* monitor_timer_thread(void* arg) {
             Passenger* cur = coaster_queue.front;
             bool first = true;
             while (cur && rem > 32) {
-                if (cur->assigned_car == NULL) {
-                    if (!first) {
-                        n = snprintf(p, rem, ", ");
-                        p += n; rem -= n;
-                    }
-                    n = snprintf(p, rem, "Passenger %d", cur->pass_id);
+                if (!first) {
+                    n = snprintf(p, rem, ", ");
                     p += n; rem -= n;
-                    first = false;
                 }
+                n = snprintf(p, rem, "Passenger %d", cur->pass_id);
+                p += n; rem -= n;
+                first = false;
                 cur = cur->next;
             }
             n = snprintf(p, rem, "]\n");
@@ -190,7 +184,7 @@ void* monitor_timer_thread(void* arg) {
         }
         pthread_mutex_unlock(coaster_queue.lock);
 
-        // 4) Car statuses (locking ride_lock to read onboard_count/state)
+        // 4) Car statuses
         pthread_mutex_lock(&ride_lock);
         for (int i = 0; i < num_cars && rem > 64; i++) {
             Car* car = &all_cars[i];
@@ -217,9 +211,7 @@ void* monitor_timer_thread(void* arg) {
         }
         pthread_mutex_unlock(&ride_lock);
 
-        extern int coaster_waiting_count;
-
-        int in_queues = ticket_queue.size + coaster_waiting_count;
+        int in_queues = ticket_queue.size + coaster_queue.size;
         int exploring = tot_passengers - (in_queues + on_ride);
         if (exploring < 0) exploring = 0;
 
@@ -228,18 +220,19 @@ void* monitor_timer_thread(void* arg) {
                      tot_passengers, exploring, in_queues, on_ride);
         p += n; rem -= n;
 
-        // 6) Write the entire snapshot at once
+        // 6) Now emit the entire block in one atomic write:
         size_t total_len = p - block;
         write(mon_pipe[1], block, total_len);
 
-        // 7) Prepare for the next wake: bump count and compute base + count*interval
-        count++;
-        next_wake = base;
-        next_wake.tv_sec += (interval * count);
+        // 7) Bump the next_wake by exactly 'interval' seconds
+        do {
+            next_wake.tv_sec += interval;
+        } while (next_wake.tv_sec <= now.tv_sec);
     }
 
-    // — When simulation ends, print final stats (unchanged) —
+    // park is closed, so print FINAL STATISTICS (also all at once) —
     {
+         // grab stats_lock before reading any of the shared counters
         pthread_mutex_lock(&stats_lock);
         int served       = total_passengers_ridden;
         int rides_done   = total_rides_completed;
@@ -257,6 +250,7 @@ void* monitor_timer_thread(void* arg) {
         int mm = (elapsed_final % 3600) / 60;
         int ss = elapsed_final % 60;
 
+        // compute averages
         double avg_ticket_wait = (cnt_ticket > 0)
                                     ? (sum_ticket / cnt_ticket)
                                     : 0.0;
@@ -294,6 +288,7 @@ void* monitor_timer_thread(void* arg) {
     close(mon_pipe[1]);
     return NULL;
 }
+
 
 void print_timestamp() {
     struct timespec current_time;
@@ -413,10 +408,7 @@ int attempt_load_available_passenger(Car* car){
     int passenger_assigned = 0;
     while (!is_passenger_queue_empty(&coaster_queue) && car->assigned_count <
             car->capacity && simulation_running) {
-        pthread_mutex_lock(coaster_queue.lock);
         Passenger* p = dequeue_passenger(&coaster_queue);
-        coaster_waiting_count--;
-        pthread_mutex_unlock(coaster_queue.lock);
         if (p != NULL) { 
             //print_timestamp();
             //printf(" DEBUG Car %d dequeued passenger %d\n", car->car_id, p->pass_id);
@@ -451,6 +443,14 @@ void load(Car* car){
         printf("Car %d invoked load()\n", car->car_id);
         pthread_mutex_unlock(&print_lock);
     }
+    // Special case: If there is only one total passenger and they've boarded, leave immediately
+    // if (tot_passengers == 1 && car->onboard_count == 1) {
+    //     print_timestamp();
+    //     printf("Only one passenger — departing immediately\n");
+    //     can_load_now = 0;
+    //     pthread_mutex_unlock(&ride_lock);
+    //     return;
+    // }
     struct timespec deadline;  // OR TIMER goes off
     clock_gettime(CLOCK_REALTIME, &deadline);
     deadline.tv_sec += ride_wait;
@@ -504,7 +504,9 @@ void load(Car* car){
 }
 // – Simulates the ride duration.
 void run(Car* car){  //int car?
+
     car->state = RUNNING;
+
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d departed for its run\n", car->car_id);
@@ -647,10 +649,7 @@ void* park_experience(void* arg){
 
         // record “enter ride queue” timestamp:
         clock_gettime(CLOCK_MONOTONIC, &p->ride_queue_enter);
-        pthread_mutex_lock(coaster_queue.lock);
         enqueue_passenger(&coaster_queue, p);
-        coaster_waiting_count++;
-        pthread_mutex_unlock(coaster_queue.lock);
         //pthread_cond_signal(&all_boarded); // wake cars waiting in load()
         pthread_cond_signal(&passengers_waiting);
         pthread_mutex_lock(&print_lock);
