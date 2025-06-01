@@ -210,11 +210,11 @@ void* monitor_timer_thread(void* arg) {
                 (car->state == RUNNING) ? "RUNNING" : "UNKNOWN";
 
             snprintf(buf, sizeof(buf),
-                     "Car %d Status: %s (%d/%d passengers)\n",
-                     car->car_id,
-                     state_str,
-                     car->onboard_count,
-                     car->capacity);
+                    "Car %d Status: %s (%d/%d passengers)\n",
+                    car->car_id,
+                    state_str,
+                    car->onboard_count,
+                    car->capacity);
             write(mon_pipe[1], buf, strlen(buf));
         }
         pthread_mutex_unlock(&ride_lock);
@@ -232,8 +232,8 @@ void* monitor_timer_thread(void* arg) {
         if (exploring < 0) exploring = 0;
 
         snprintf(buf, sizeof(buf),
-                 "Passengers in park: %d (%d exploring, %d in queues, %d on rides)\n\n",
-                 tot_passengers, exploring, in_queues, on_ride);
+                "Passengers in park: %d (%d exploring, %d in queues, %d on rides)\n\n",
+                tot_passengers, exploring, in_queues, on_ride);
         write(mon_pipe[1], buf, strlen(buf));
     }
 

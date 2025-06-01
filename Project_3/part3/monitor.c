@@ -21,12 +21,12 @@ void monitor_main(int pipe_fd) {
         linebuf[strcspn(linebuf, "\n")] = '\0';
 
         if (first_line) {
-            printf("[Monitor] %s\n", linebuf);
+            fprintf(stderr, "[Monitor] %s\n", linebuf);
             first_line = 0;
         } else {
-            printf("%s\n", linebuf);
+            fprintf(stderr, "%s\n", linebuf);
         }
-        fflush(stdout);
+        fflush(stderr);
     }
     //Once fgets() returns NULL, the parent has closed mon_pipe[1] -> EOF
     //    We close our FILE* and exit.
