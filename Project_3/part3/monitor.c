@@ -16,11 +16,8 @@ void monitor_main(int pipe_fd) {
 
     char bigbuf[4096];
     while (fgets(bigbuf, sizeof(bigbuf), pipe_stream)) {
-        // Each call to fprintf(stderr, "%s", bigbuf) will print
-        // one or more complete lines from our single write() above,
-        // but nothing inside that block can get split across two
-        // separate fprintf calls.
         fprintf(stderr, "%s", bigbuf);
+        fflush(stderr);
     }
     fclose(pipe_stream);
 }
