@@ -14,7 +14,7 @@
 static int mon_pipe[2];
 static time_t beginning_time;
 void* monitor_timer_thread(void* arg);
-
+int coaster_waiting_count = 0;
 // Pointer to the array of all Car structs (allocated in launch_ark)
 Car *all_cars;
 
@@ -415,8 +415,10 @@ int attempt_load_available_passenger(Car* car){
     int passenger_assigned = 0;
     while (!is_passenger_queue_empty(&coaster_queue) && car->assigned_count <
             car->capacity && simulation_running) {
+        pthread_mutex_lock(coaster_queue.lock);
         Passenger* p = dequeue_passenger(&coaster_queue);
         coaster_waiting_count--;
+        pthread_mutex_unlock(coaster_queue.lock);
         if (p != NULL) { 
             //print_timestamp();
             //printf(" DEBUG Car %d dequeued passenger %d\n", car->car_id, p->pass_id);
@@ -451,14 +453,6 @@ void load(Car* car){
         printf("Car %d invoked load()\n", car->car_id);
         pthread_mutex_unlock(&print_lock);
     }
-    // Special case: If there is only one total passenger and they've boarded, leave immediately
-    // if (tot_passengers == 1 && car->onboard_count == 1) {
-    //     print_timestamp();
-    //     printf("Only one passenger — departing immediately\n");
-    //     can_load_now = 0;
-    //     pthread_mutex_unlock(&ride_lock);
-    //     return;
-    // }
     struct timespec deadline;  // OR TIMER goes off
     clock_gettime(CLOCK_REALTIME, &deadline);
     deadline.tv_sec += ride_wait;
@@ -512,9 +506,7 @@ void load(Car* car){
 }
 // – Simulates the ride duration.
 void run(Car* car){  //int car?
-
     car->state = RUNNING;
-
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d departed for its run\n", car->car_id);
@@ -657,8 +649,10 @@ void* park_experience(void* arg){
 
         // record “enter ride queue” timestamp:
         clock_gettime(CLOCK_MONOTONIC, &p->ride_queue_enter);
+        pthread_mutex_lock(coaster_queue.lock);
         enqueue_passenger(&coaster_queue, p);
         coaster_waiting_count++;
+        pthread_mutex_unlock(coaster_queue.lock);
         //pthread_cond_signal(&all_boarded); // wake cars waiting in load()
         pthread_cond_signal(&passengers_waiting);
         pthread_mutex_lock(&print_lock);
