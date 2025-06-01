@@ -6,29 +6,22 @@
 #include "monitor.h"
 
 //int pipe_fd is the read end of a UNIX pipe
+// In monitor_main, replace its loop with something like:
 void monitor_main(int pipe_fd) {
-    //allows us to use fgets on the info 
     FILE *pipe_stream = fdopen(pipe_fd, "r");
     if (!pipe_stream) {
         perror("monitor_main: fdopen");
         return;
     }
-    char linebuf[512];
-    int first_line = 1;
-    // Read one line at a time until EOF
-    while (fgets(linebuf, sizeof(linebuf), pipe_stream) != NULL) {
-        // Remove trailing newline (so we don’t end up with double line breaks)
-        linebuf[strcspn(linebuf, "\n")] = '\0';
 
-        if (first_line) {
-            fprintf(stderr, "[Monitor] %s\n", linebuf);
-            first_line = 0;
-        } else {
-            fprintf(stderr, "%s\n", linebuf);
-        }
-        fflush(stderr);
+    char bigbuf[4096];
+    while (fgets(bigbuf, sizeof(bigbuf), pipe_stream)) {
+        // Each call to fprintf(stderr, "%s", bigbuf) will print
+        // one or more complete lines from our single write() above,
+        // but nothing inside that block can get split across two
+        // separate fprintf calls.
+        fprintf(stderr, "%s", bigbuf);
     }
-    //Once fgets() returns NULL, the parent has closed mon_pipe[1] -> EOF
-    //    We close our FILE* and exit.
     fclose(pipe_stream);
 }
+

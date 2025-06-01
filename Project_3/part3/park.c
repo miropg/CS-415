@@ -129,17 +129,15 @@ void* monitor_timer_thread(void* arg) {
     int interval = *((int*)arg);
     free(arg);
 
-    // 1) Compute the first absolute wake‐up: "now + interval"
     struct timespec next_wake;
     clock_gettime(CLOCK_MONOTONIC, &next_wake);
     next_wake.tv_sec += interval;
 
-    // 2) Loop until park closes
     while (simulation_running) {
-        // Sleep until the exact absolute time 'next_wake'
+        // Sleep until the exact “next_wake” (absolute time)
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_wake, NULL);
 
-        // ——— Snapshot #N for “System State at HH:MM:SS” ———
+        // Snap current time
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);
         time_t elapsed_sec = now.tv_sec - start_time.tv_sec;
@@ -147,25 +145,24 @@ void* monitor_timer_thread(void* arg) {
         int mm = (elapsed_sec % 3600) / 60;
         int ss = elapsed_sec % 60;
 
-        char buf[256];
-        snprintf(buf, sizeof(buf),
-                 "\nSystem State at %02d:%02d:%02d\n",
-                 hh, mm, ss);
-        write(mon_pipe[1], buf, strlen(buf));
+        // We’ll accumulate the entire snapshot into 'block'
+        char block[4096];
+        char* p = block;
+        int rem = sizeof(block);
 
-        // 3) Snapshot ticket_queue under its mutex
+        // 1) Header
+        int n = snprintf(p, rem, "\nSystem State at %02d:%02d:%02d\n", hh, mm, ss);
+        p += n; rem -= n;
+
+        // 2) Ticket Queue
         pthread_mutex_lock(ticket_queue.lock);
         {
-            char temp[256];
-            char *p = temp;
-            int rem = sizeof(temp);
-
-            int n = snprintf(p, rem, "Ticket Queue: [");
+            n = snprintf(p, rem, "Ticket Queue: [");
             p += n; rem -= n;
 
             Passenger* cur = ticket_queue.front;
             bool first = true;
-            while (cur) {
+            while (cur && rem > 32) {
                 if (!first) {
                     n = snprintf(p, rem, ", ");
                     p += n; rem -= n;
@@ -176,23 +173,19 @@ void* monitor_timer_thread(void* arg) {
                 cur = cur->next;
             }
             n = snprintf(p, rem, "]\n");
-            write(mon_pipe[1], temp, strlen(temp));
+            p += n; rem -= n;
         }
         pthread_mutex_unlock(ticket_queue.lock);
 
-        // 4) Snapshot coaster_queue under its mutex
+        // 3) Ride Queue
         pthread_mutex_lock(coaster_queue.lock);
         {
-            char temp[256];
-            char *p = temp;
-            int rem = sizeof(temp);
-
-            int n = snprintf(p, rem, "Ride Queue: [");
+            n = snprintf(p, rem, "Ride Queue: [");
             p += n; rem -= n;
 
             Passenger* cur = coaster_queue.front;
             bool first = true;
-            while (cur) {
+            while (cur && rem > 32) {
                 if (!first) {
                     n = snprintf(p, rem, ", ");
                     p += n; rem -= n;
@@ -203,30 +196,30 @@ void* monitor_timer_thread(void* arg) {
                 cur = cur->next;
             }
             n = snprintf(p, rem, "]\n");
-            write(mon_pipe[1], temp, strlen(temp));
+            p += n; rem -= n;
         }
         pthread_mutex_unlock(coaster_queue.lock);
 
-        // 5) Snapshot each car’s status under ride_lock
+        // 4) Car statuses
         pthread_mutex_lock(&ride_lock);
-        for (int i = 0; i < num_cars; i++) {
+        for (int i = 0; i < num_cars && rem > 64; i++) {
             Car* car = &all_cars[i];
             const char* state_str =
                 (car->state == WAITING) ? "WAITING" :
                 (car->state == LOADING) ? "LOADING" :
                 (car->state == RUNNING) ? "RUNNING" : "UNKNOWN";
 
-            snprintf(buf, sizeof(buf),
-                     "Car %d Status: %s (%d/%d passengers)\n",
-                     car->car_id,
-                     state_str,
-                     car->onboard_count,
-                     car->capacity);
-            write(mon_pipe[1], buf, strlen(buf));
+            n = snprintf(p, rem,
+                         "Car %d Status: %s (%d/%d passengers)\n",
+                         car->car_id,
+                         state_str,
+                         car->onboard_count,
+                         car->capacity);
+            p += n; rem -= n;
         }
         pthread_mutex_unlock(&ride_lock);
 
-        // 6) Count “exploring / in queues / on rides”
+        // 5) “Passengers in park: X (E exploring, Q in queues, R on rides)”
         pthread_mutex_lock(&ride_lock);
         int on_ride = 0;
         for (int i = 0; i < num_cars; i++) {
@@ -238,16 +231,20 @@ void* monitor_timer_thread(void* arg) {
         int exploring = tot_passengers - (in_queues + on_ride);
         if (exploring < 0) exploring = 0;
 
-        snprintf(buf, sizeof(buf),
-                 "Passengers in park: %d (%d exploring, %d in queues, %d on rides)\n\n",
-                 tot_passengers, exploring, in_queues, on_ride);
-        write(mon_pipe[1], buf, strlen(buf));
+        n = snprintf(p, rem,
+                     "Passengers in park: %d (%d exploring, %d in queues, %d on rides)\n\n",
+                     tot_passengers, exploring, in_queues, on_ride);
+        p += n; rem -= n;
 
-        // 7) Bump next_wake by exactly 'interval' seconds
+        // 6) Now emit the entire block in one atomic write:
+        size_t total_len = p - block;
+        write(mon_pipe[1], block, total_len);
+
+        // 7) Bump the next_wake by exactly 'interval' seconds
         next_wake.tv_sec += interval;
     }
 
-    // ——— Park has now closed, so print FINAL STATISTICS ———
+    // ——— Park is closed, so print FINAL STATISTICS (also all at once) ———
     {
         struct timespec final_now;
         clock_gettime(CLOCK_MONOTONIC, &final_now);
@@ -256,35 +253,36 @@ void* monitor_timer_thread(void* arg) {
         int mm = (elapsed_final % 3600) / 60;
         int ss = elapsed_final % 60;
 
-        char buf2[256];
-        snprintf(buf2, sizeof(buf2),
-                 "FINAL STATISTICS:\n"
-                 "Total simulation time: %02d:%02d:%02d\n"
-                 "Total passengers served: %d\n"
-                 "Total rides completed: %d\n"
-                 "Average wait time in ticket queue: %.1f seconds\n"
-                 "Average wait time in ride queue: %.1f seconds\n"
-                 "Average car utilization: %.1f%% (%.1f/%d passengers per ride)\n\n",
-                 hh, mm, ss,
-                 total_passengers_ridden,
-                 total_rides_completed,
-                 (count_wait_ticket > 0 ? sum_wait_ticket_queue / count_wait_ticket : 0.0),
-                 (count_wait_ride   > 0 ? sum_wait_ride_queue   / count_wait_ride   : 0.0),
-                 (total_rides_completed > 0
-                      ? ((double)total_passengers_ridden /
-                         ((double)total_rides_completed * (double)car_capacity)) * 100.0
-                      : 0.0),
-                 (total_rides_completed > 0
-                      ? ((double)total_passengers_ridden / (double)total_rides_completed)
-                      : 0.0),
-                 car_capacity);
+        char final_block[512];
+        int m = snprintf(final_block, sizeof(final_block),
+                         "FINAL STATISTICS:\n"
+                         "Total simulation time: %02d:%02d:%02d\n"
+                         "Total passengers served: %d\n"
+                         "Total rides completed: %d\n"
+                         "Average wait time in ticket queue: %.1f seconds\n"
+                         "Average wait time in ride queue: %.1f seconds\n"
+                         "Average car utilization: %.1f%% (%.1f/%d passengers per ride)\n\n",
+                         hh, mm, ss,
+                         total_passengers_ridden,
+                         total_rides_completed,
+                         (count_wait_ticket > 0 ? sum_wait_ticket_queue / count_wait_ticket : 0.0),
+                         (count_wait_ride   > 0 ? sum_wait_ride_queue   / count_wait_ride   : 0.0),
+                         (total_rides_completed > 0
+                              ? ((double)total_passengers_ridden /
+                                 ((double)total_rides_completed * (double)car_capacity)) * 100.0
+                              : 0.0),
+                         (total_rides_completed > 0
+                              ? ((double)total_passengers_ridden / (double)total_rides_completed)
+                              : 0.0),
+                         car_capacity);
 
-        write(mon_pipe[1], buf2, strlen(buf2));
+        write(mon_pipe[1], final_block, m);
     }
 
     close(mon_pipe[1]);
     return NULL;
 }
+
 
 void print_timestamp() {
     struct timespec current_time;
