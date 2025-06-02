@@ -71,7 +71,7 @@ int ride_duration;
 void monitor_main(int pipe_fd);
 
 //ALL MONITOR FUNCTIONS
-void beginning_stats_to_pipe(int passengers,
+void beginning_stats(int passengers,
                              int cars,
                              int capacity,
                              int wait,
@@ -268,7 +268,7 @@ static void print_final_statistics(void) {
 
     char final_block[512];
     int m = snprintf(final_block, sizeof(final_block),
-                     "FINAL STATISTICS:\n"
+                     "\nFINAL STATISTICS:\n"
                      "Total simulation time: %02d:%02d:%02d\n"
                      "Total passengers served: %d\n"
                      "Total rides completed: %d\n"
@@ -681,6 +681,15 @@ void* park_experience(void* arg){
 void launch_park(int passengers, int cars, int capacity, int wait, int ride, int park_hours,
     int max_coaster_line)
 {
+    // for both timer threads
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
+
+    // 2) immediately spawn the 5 s–interval monitor:
+    pthread_t monitor_tid;
+    int *interval_arg = malloc(sizeof(int));
+    *interval_arg = 5;
+    pthread_create(&monitor_tid, NULL, monitor_timer_thread, interval_arg);
+
     //assigned_car = malloc(sizeof(Car*) * tot_passengers);
     // Set global variables
     tot_passengers = passengers;
@@ -691,8 +700,6 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     global_max_coaster_line = max_coaster_line; // *2 total seats on all cars
     // use 0 in sem_init because we are using threads, above 0 would be num processes using it
     sem_init(&ride_queue_semaphore, 0, global_max_coaster_line); //SEMAPHORE for ride queue line
-
-    clock_gettime(CLOCK_MONOTONIC, &start_time);
     //separate queue structure for cars
     init_car_queue(&car_queue, cars);
     //REUSEing same queue structure for ticket_queue/ride_queue
@@ -741,6 +748,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 		pthread_join(thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
     pthread_join(timer, NULL);
+    pthread_join(monitor_tid, NULL);
     for (int j = 0; j < num_cars; ++j){
 		pthread_join(car_thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
@@ -862,17 +870,10 @@ int main(int argc, char *argv[]){
     // }
     // close(mon_pipe[0]);
     printf("===== DUCK PARK SIMULATION =====\n");
-    beginning_stats_to_pipe(passengers, cars, capacity, wait, ride, park_hours);
-    pthread_t timer_tid;
-    int *interval_arg = malloc(sizeof(int));
-    *interval_arg = 5;  // sample interval = 5s
-    pthread_create(&timer_tid, NULL, monitor_timer_thread, interval_arg);
-
+    beginning_stats(passengers, cars, capacity, wait, ride, park_hours);
     launch_park(passengers, cars, capacity, wait, ride, park_hours, max_coaster_line);
-
     //close(STDOUT_FILENO);
     // Wait for timer thread to finish (it will exit once simulation_running == false):
-    pthread_join(timer_tid, NULL);
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Closing the park.\n");
