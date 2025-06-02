@@ -329,7 +329,7 @@ void* timer_thread(void* arg) {
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Simulation timer ended. Cleaning up.\n");
-    fflush(STDOUT_FILENO);
+    fflush(stdout);
     pthread_mutex_unlock(&print_lock);
     // Wake up any threads waiting on condition variables
     // like a bell for closing, making sure threads call pthread_exit
@@ -369,7 +369,7 @@ void board(Passenger* p) {
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d boarded Car %d\n", p->pass_id, my_car->car_id);
-        fflush(STDOUT_FILENO);
+        fflush(stdout);
         pthread_mutex_unlock(&print_lock);
         my_car->passenger_ids[my_car->onboard_count++] = p->pass_id;
         pthread_cond_signal(&passengers_waiting);
@@ -396,7 +396,7 @@ void unboard(Passenger* p) {
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d unboarded Car %d\n", p->pass_id, my_car->car_id);
-        fflush(STDOUT_FILENO);
+        fflush(stdout);
         pthread_mutex_unlock(&print_lock);
         my_car->unboard_count++;
 
@@ -446,7 +446,7 @@ void load(Car* car){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d invoked load()\n", car->car_id);
-        fflush(STDOUT_FILENO);
+        fflush(stdout);
         pthread_mutex_unlock(&print_lock);
     }
     // Special case: If there is only one total passenger and they've boarded, leave immediately
@@ -470,7 +470,7 @@ void load(Car* car){
             pthread_mutex_lock(&print_lock);
             print_timestamp();
             printf("Only one passenger — Car %d departing immediately\n", car->car_id);
-            fflush(STDOUT_FILENO);
+            fflush(stdout);
             pthread_mutex_unlock(&print_lock);
             solo_early_departure = true;
             break;
@@ -492,21 +492,21 @@ void load(Car* car){
         print_timestamp();
         printf("Car %d done waiting, departing with %d / %d\n",
                 car->car_id, car->onboard_count, car->capacity);
-        fflush(STDOUT_FILENO);
+        fflush(stdout);
         pthread_mutex_unlock(&print_lock);
     } else if (car->onboard_count == car->capacity){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d is full with %d passengers\n", car->car_id, 
             car->capacity);
-        fflush(STDOUT_FILENO);
+        fflush(stdout);
         pthread_mutex_unlock(&print_lock);
     } else {
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d boarded all %d assigned passengers, but is not full (capacity %d)\n",
             car->car_id, car->onboard_count, car->capacity);
-        fflush(STDOUT_FILENO);
+        fflush(stdout);
         pthread_mutex_unlock(&print_lock);
     }
     can_load_now = 0;
@@ -520,13 +520,13 @@ void run(Car* car){  //int car?
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d departed for its run\n", car->car_id);
-    fflush(STDOUT_FILENO);
+    fflush(stdout);
     pthread_mutex_unlock(&print_lock);
     sleep(ride_duration);
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d finished its run\n", car->car_id);
-    fflush(STDOUT_FILENO);
+    fflush(stdout);
     pthread_mutex_unlock(&print_lock);
 }
 //– Signals passengers to call unboard()
@@ -535,7 +535,7 @@ void unload(Car* car){
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d invoked unload()\n", car->car_id);
-    fflush(STDOUT_FILENO);
+    fflush(stdout);
     pthread_mutex_unlock(&print_lock);
 
     car->can_unload_now = true;
@@ -613,7 +613,7 @@ void* park_experience(void* arg){
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Passenger %d entered the park\n", p->pass_id);
-    fflush(STDOUT_FILENO);
+    fflush(stdout);
     pthread_mutex_unlock(&print_lock);
 
     while (simulation_running) {
@@ -622,13 +622,13 @@ void* park_experience(void* arg){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d is exploring the park...\n", p->pass_id);
-        fflush(STDOUT_FILENO);
+        fflush(stdout);
         pthread_mutex_unlock(&print_lock);
         sleep(explore_time);
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d finished exploring, heading to ticket booth\n", p->pass_id);
-        fflush(STDOUT_FILENO);
+        fflush(stdout);
         pthread_mutex_unlock(&print_lock);
         
         // record the moment we joined the ticket line:
@@ -639,7 +639,7 @@ void* park_experience(void* arg){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d waiting in ticket queue\n", p->pass_id);
-        fflush(STDOUT_FILENO);
+        fflush(stdout);
         pthread_mutex_unlock(&print_lock);
         pthread_mutex_lock(&ticket_booth_lock);
         //increments ride queue total, and blocks if line at max
@@ -659,7 +659,7 @@ void* park_experience(void* arg){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d acquired a ticket\n", p->pass_id);
-        fflush(STDOUT_FILENO);
+        fflush(stdout);
         pthread_mutex_unlock(&print_lock);
         usleep(1000000);
         pthread_mutex_unlock(&ticket_booth_lock);
@@ -673,7 +673,7 @@ void* park_experience(void* arg){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id);
-        fflush(STDOUT_FILENO); 
+        fflush(stdout); 
         pthread_mutex_unlock(&print_lock);
         
         embark_coaster(p);
@@ -752,7 +752,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Closing the park.\n");
-    fflush(STDOUT_FILENO);
+    fflush(stdout);
     pthread_mutex_unlock(&print_lock);
     for (int i = 0; i < passengers; ++i) {
         free(passenger_objects[i]);  
