@@ -26,5 +26,5 @@ void monitor_main(int pipe_fd) {
         pthread_mutex_unlock(shared_print_mutex);
     }
     fclose(pipe_stream);
-// 
+}
 
