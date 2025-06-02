@@ -120,9 +120,6 @@ void beginning_stats_to_pipe(int passengers,
 
 void* monitor_timer_thread(void* arg) {
     // Increase thread priority so it isn't starved
-    struct sched_param sched_p = { .sched_priority = sched_get_priority_max(SCHED_FIFO) };
-    pthread_setschedparam(pthread_self(), SCHED_FIFO, &sched_p);
-
     int interval = *((int*)arg);
     free(arg);
 
@@ -133,7 +130,7 @@ void* monitor_timer_thread(void* arg) {
         clock_gettime(CLOCK_MONOTONIC, &start);
 
         // 2) Busy‐wait until >= interval seconds have passed, or simulation ends
-        while (simulation_running) {
+        while (sec_diff < interval) {
             struct timespec now;
             clock_gettime(CLOCK_MONOTONIC, &now);
 
@@ -142,11 +139,6 @@ void* monitor_timer_thread(void* arg) {
             if (nsec_diff < 0) {
                 sec_diff  -= 1;
                 nsec_diff += 1000000000L;
-            }
-
-            if (sec_diff >= interval) {
-                // We have waited at least 'interval' seconds—time to snapshot
-                break;
             }
             sched_yield();
             // No sleep here: pure busy‐wait
