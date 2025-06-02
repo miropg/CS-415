@@ -119,130 +119,138 @@ void beginning_stats_to_pipe(int passengers,
 }
 
 void* monitor_timer_thread(void* arg) {
-    struct sched_param p = { .sched_priority = sched_get_priority_max(SCHED_FIFO) };
-    pthread_setschedparam(pthread_self(), SCHED_FIFO, &p);
+    struct sched_param sched_p = { .sched_priority = sched_get_priority_max(SCHED_FIFO) };
+    pthread_setschedparam(pthread_self(), SCHED_FIFO, &sched_p);
+
     int interval = *((int*)arg);
     free(arg);
 
-    struct timespec next_wake;
-    clock_gettime(CLOCK_MONOTONIC, &next_wake);
-    next_wake.tv_sec += interval;
+    // Record the “last snapshot” time as soon as we start.
+    struct timespec last_snapshot;
+    clock_gettime(CLOCK_MONOTONIC, &last_snapshot);
 
     while (simulation_running) {
-        // Sleep until the exact “next_wake” (absolute time)
-        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_wake, NULL);
-
-        // Snap current time
+        // Continuously check the clock until at least `interval` seconds have passed
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);
-        time_t elapsed_sec = now.tv_sec - start_time.tv_sec;
-        int hh = elapsed_sec / 3600;
-        int mm = (elapsed_sec % 3600) / 60;
-        int ss = elapsed_sec % 60;
 
-        // We’ll accumulate the entire snapshot into 'block'
-        char block[4096];
-        char* p = block;
-        int rem = sizeof(block);
+        time_t  sec_diff  = now.tv_sec  - last_snapshot.tv_sec;
+        long    nsec_diff = now.tv_nsec - last_snapshot.tv_nsec;
+        if (nsec_diff < 0) {
+            sec_diff  -= 1;
+            nsec_diff += 1000000000L;
+        }
 
-        // 1) Header
-        int n = snprintf(p, rem, "\nSystem State at %02d:%02d:%02d\n", hh, mm, ss);
-        p += n; rem -= n;
+        if (sec_diff >= interval) {
+            // It’s been ≥ interval seconds—take one snapshot now.
 
-        // 2) Ticket Queue
-        pthread_mutex_lock(ticket_queue.lock);
-        {
+            // Compute elapsed park time for header (hh:mm:ss)
+            struct timespec park_now;
+            clock_gettime(CLOCK_MONOTONIC, &park_now);
+            time_t park_elapsed = park_now.tv_sec - start_time.tv_sec;
+            int hh =  park_elapsed / 3600;
+            int mm = (park_elapsed % 3600) / 60;
+            int ss =  park_elapsed % 60;
+
+            // Build the snapshot into 'block'
+            char block[4096];
+            char* p = block;
+            int rem = sizeof(block);
+            int n;
+
+            // 1) Header
+            n = snprintf(p, rem, "\nSystem State at %02d:%02d:%02d\n", hh, mm, ss);
+            p += n; rem -= n;
+
+            // 2) Ticket Queue
+            pthread_mutex_lock(ticket_queue.lock);
             n = snprintf(p, rem, "Ticket Queue: [");
             p += n; rem -= n;
-
-            Passenger* cur = ticket_queue.front;
-            bool first = true;
-            while (cur && rem > 32) {
-                if (!first) {
+            Passenger* cur_ticket = ticket_queue.front;
+            bool first_ticket = true;
+            while (cur_ticket && rem > 32) {
+                if (!first_ticket) {
                     n = snprintf(p, rem, ", ");
                     p += n; rem -= n;
                 }
-                n = snprintf(p, rem, "Passenger %d", cur->pass_id);
+                n = snprintf(p, rem, "Passenger %d", cur_ticket->pass_id);
                 p += n; rem -= n;
-                first = false;
-                cur = cur->next;
+                first_ticket = false;
+                cur_ticket = cur_ticket->next;
             }
             n = snprintf(p, rem, "]\n");
             p += n; rem -= n;
-        }
-        pthread_mutex_unlock(ticket_queue.lock);
+            pthread_mutex_unlock(ticket_queue.lock);
 
-        // 3) Ride Queue
-        pthread_mutex_lock(coaster_queue.lock);
-        {
+            // 3) Ride Queue
+            pthread_mutex_lock(coaster_queue.lock);
             n = snprintf(p, rem, "Ride Queue: [");
             p += n; rem -= n;
-
-            Passenger* cur = coaster_queue.front;
-            bool first = true;
-            while (cur && rem > 32) {
-                if (!first) {
+            Passenger* cur_ride = coaster_queue.front;
+            bool first_ride = true;
+            while (cur_ride && rem > 32) {
+                if (!first_ride) {
                     n = snprintf(p, rem, ", ");
                     p += n; rem -= n;
                 }
-                n = snprintf(p, rem, "Passenger %d", cur->pass_id);
+                n = snprintf(p, rem, "Passenger %d", cur_ride->pass_id);
                 p += n; rem -= n;
-                first = false;
-                cur = cur->next;
+                first_ride = false;
+                cur_ride = cur_ride->next;
             }
             n = snprintf(p, rem, "]\n");
             p += n; rem -= n;
-        }
-        pthread_mutex_unlock(coaster_queue.lock);
+            pthread_mutex_unlock(coaster_queue.lock);
 
-        // 4) Car statuses
-        pthread_mutex_lock(&ride_lock);
-        for (int i = 0; i < num_cars && rem > 64; i++) {
-            Car* car = &all_cars[i];
-            const char* state_str =
-                (car->state == WAITING) ? "WAITING" :
-                (car->state == LOADING) ? "LOADING" :
-                (car->state == RUNNING) ? "RUNNING" : "UNKNOWN";
+            // 4) Car statuses
+            pthread_mutex_lock(&ride_lock);
+            for (int i = 0; i < num_cars && rem > 64; i++) {
+                Car* car = &all_cars[i];
+                const char* state_str =
+                    (car->state == WAITING) ? "WAITING" :
+                    (car->state == LOADING) ? "LOADING" :
+                    (car->state == RUNNING) ? "RUNNING" : "UNKNOWN";
+                n = snprintf(p, rem,
+                             "Car %d Status: %s (%d/%d passengers)\n",
+                             car->car_id,
+                             state_str,
+                             car->onboard_count,
+                             car->capacity);
+                p += n; rem -= n;
+            }
+            pthread_mutex_unlock(&ride_lock);
+
+            // 5) “Passengers in park: X (E exploring, Q in queues, R on rides)”
+            pthread_mutex_lock(&ride_lock);
+            int on_ride = 0;
+            for (int i = 0; i < num_cars; i++) {
+                on_ride += all_cars[i].onboard_count;
+            }
+            pthread_mutex_unlock(&ride_lock);
+
+            int in_queues = ticket_queue.size + coaster_queue.size;
+            int exploring = tot_passengers - (in_queues + on_ride);
+            if (exploring < 0) exploring = 0;
 
             n = snprintf(p, rem,
-                         "Car %d Status: %s (%d/%d passengers)\n",
-                         car->car_id,
-                         state_str,
-                         car->onboard_count,
-                         car->capacity);
+                         "Passengers in park: %d (%d exploring, %d in queues, %d on rides)\n\n",
+                         tot_passengers, exploring, in_queues, on_ride);
             p += n; rem -= n;
+
+            // 6) Emit the entire block in one write
+            size_t total_len = p - block;
+            write(mon_pipe[1], block, total_len);
+
+            // 7) Advance last_snapshot by exactly `interval` seconds
+            last_snapshot.tv_sec += interval;
+            // (keep last_snapshot.tv_nsec unchanged)
         }
-        pthread_mutex_unlock(&ride_lock);
 
-        // 5) “Passengers in park: X (E exploring, Q in queues, R on rides)”
-        pthread_mutex_lock(&ride_lock);
-        int on_ride = 0;
-        for (int i = 0; i < num_cars; i++) {
-            on_ride += all_cars[i].onboard_count;
-        }
-        pthread_mutex_unlock(&ride_lock);
-
-        int in_queues = ticket_queue.size + coaster_queue.size;
-        int exploring = tot_passengers - (in_queues + on_ride);
-        if (exploring < 0) exploring = 0;
-
-        n = snprintf(p, rem,
-                     "Passengers in park: %d (%d exploring, %d in queues, %d on rides)\n\n",
-                     tot_passengers, exploring, in_queues, on_ride);
-        p += n; rem -= n;
-
-        // 6) Now emit the entire block in one atomic write:
-        size_t total_len = p - block;
-        write(mon_pipe[1], block, total_len);
-
-        // 7) Bump the next_wake by exactly 'interval' seconds
-        next_wake = now;
-        next_wake.tv_sec += interval;
+        // Loop again immediately (busy‐wait) until simulation_running becomes 0
     }
 
-    // park is closed, so print FINAL STATISTICS (also all at once) —
+    // When simulation_running == 0, print FINAL STATISTICS
     {
-         // grab stats_lock before reading any of the shared counters
         pthread_mutex_lock(&stats_lock);
         int served       = total_passengers_ridden;
         int rides_done   = total_rides_completed;
@@ -260,7 +268,6 @@ void* monitor_timer_thread(void* arg) {
         int mm = (elapsed_final % 3600) / 60;
         int ss = elapsed_final % 60;
 
-        // compute averages
         double avg_ticket_wait = (cnt_ticket > 0)
                                     ? (sum_ticket / cnt_ticket)
                                     : 0.0;
@@ -298,7 +305,6 @@ void* monitor_timer_thread(void* arg) {
     close(mon_pipe[1]);
     return NULL;
 }
-
 
 void print_timestamp() {
     struct timespec current_time;
