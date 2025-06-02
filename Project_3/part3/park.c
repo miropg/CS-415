@@ -124,12 +124,9 @@ void* monitor_timer_thread(void* arg) {
     free(arg);
     time_t sec_diff = 0;
     // Outer loop: keep taking snapshots until simulation_running == 0
+    struct timespec start;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     while (simulation_running) {
-        // 1) Record the moment we begin waiting for the next 'interval' seconds
-        struct timespec start;
-        clock_gettime(CLOCK_MONOTONIC, &start);
-
-        // 2) Busy‐wait until >= interval seconds have passed, or simulation ends
         while (sec_diff < interval) {
             struct timespec now;
             clock_gettime(CLOCK_MONOTONIC, &now);
@@ -141,7 +138,6 @@ void* monitor_timer_thread(void* arg) {
                 nsec_diff += 1000000000L;
             }
             sched_yield();
-            // No sleep here: pure busy‐wait
         }
         clock_gettime(CLOCK_MONOTONIC, &start);
 
