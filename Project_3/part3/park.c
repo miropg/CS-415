@@ -148,6 +148,7 @@ void* monitor_timer_thread(void* arg) {
                 // We have waited at least 'interval' seconds—time to snapshot
                 break;
             }
+            sched_yield();
             // No sleep here: pure busy‐wait
         }
 
