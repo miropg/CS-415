@@ -15,9 +15,9 @@
 #include "monitor.h"
 
 //ALL MONITOR GLOBAL VARIABLES
-static int mon_pipe[2];
-static pthread_mutex_t shared_mutex_storage = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t *&print_lock = &shared_mutex_storage;
+// static int mon_pipe[2];
+// static pthread_mutex_t shared_mutex_storage = PTHREAD_MUTEX_INITIALIZER;
+// pthread_mutex_t *&print_lock = &shared_mutex_storage;
 
 static time_t beginning_time;
 void* monitor_timer_thread(void* arg);
@@ -82,40 +82,40 @@ void beginning_stats_to_pipe(int passengers,
     // First line:
     snprintf(buf, sizeof(buf),
              "Simulation started with parameters:\n");
-    write(stdout, buf, strlen(buf));
+    write(STDOUT_FILENO, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Number of passenger threads: %d\n", passengers);
-    write(stdout, buf, strlen(buf));
+    write(STDOUT_FILENO, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Number of cars: %d\n", cars);
-    write(stdout, buf, strlen(buf));
+    write(STDOUT_FILENO, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Capacity per car: %d\n", capacity);
-    write(stdout, buf, strlen(buf));
+    write(STDOUT_FILENO, buf, strlen(buf));
 
     // The “Park exploration time” line was hard‐coded, so send that as well:
     snprintf(buf, sizeof(buf),
              "- Park exploration time: 1-10 seconds\n");
-    write(stdout, buf, strlen(buf));
+    write(STDOUT_FILENO, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Car waiting period: %d seconds\n", wait);
-    write(stdout, buf, strlen(buf));
+    write(STDOUT_FILENO, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Ride duration: %d seconds\n", ride);
-    write(stdout, buf, strlen(buf));
+    write(STDOUT_FILENO, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Total simulation time: %d seconds\n", hours);
-    write(stdout, buf, strlen(buf));
+    write(STDOUT_FILENO, buf, strlen(buf));
 
     // A blank line to separate from later snapshots:
     snprintf(buf, sizeof(buf), "\n");
-    write(stdout, buf, strlen(buf));
+    write(STDOUT_FILENO, buf, strlen(buf));
 }
 
 void* monitor_timer_thread(void* arg) {
@@ -229,7 +229,7 @@ void* monitor_timer_thread(void* arg) {
 
         // 3c) Write the entire block in one atomic write()
         size_t total_len = p - block;
-        write(stdout, block, total_len);
+        write(STDOUT_FILENO, block, total_len);
 
         // Now go back into the outer loop and start a fresh “start” for the next interval
     }
@@ -284,10 +284,10 @@ void* monitor_timer_thread(void* arg) {
                         avg_pass_per_ride,
                         capacity);
 
-        write(stdout, final_block, m);
+        write(STDOUT_FILENO, final_block, m);
     }
 
-    close(stdout);
+    close(STDOUT_FILENO);
     return NULL;
 }
 
@@ -329,7 +329,7 @@ void* timer_thread(void* arg) {
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Simulation timer ended. Cleaning up.\n");
-    fflush(stdout);
+    fflush(STDOUT_FILENO);
     pthread_mutex_unlock(&print_lock);
     // Wake up any threads waiting on condition variables
     // like a bell for closing, making sure threads call pthread_exit
@@ -369,7 +369,7 @@ void board(Passenger* p) {
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d boarded Car %d\n", p->pass_id, my_car->car_id);
-        fflush(stdout);
+        fflush(STDOUT_FILENO);
         pthread_mutex_unlock(&print_lock);
         my_car->passenger_ids[my_car->onboard_count++] = p->pass_id;
         pthread_cond_signal(&passengers_waiting);
@@ -396,7 +396,7 @@ void unboard(Passenger* p) {
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d unboarded Car %d\n", p->pass_id, my_car->car_id);
-        fflush(stdout);
+        fflush(STDOUT_FILENO);
         pthread_mutex_unlock(&print_lock);
         my_car->unboard_count++;
 
@@ -446,7 +446,7 @@ void load(Car* car){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d invoked load()\n", car->car_id);
-        fflush(stdout);
+        fflush(STDOUT_FILENO);
         pthread_mutex_unlock(&print_lock);
     }
     // Special case: If there is only one total passenger and they've boarded, leave immediately
@@ -470,7 +470,7 @@ void load(Car* car){
             pthread_mutex_lock(&print_lock);
             print_timestamp();
             printf("Only one passenger — Car %d departing immediately\n", car->car_id);
-            fflush(stdout);
+            fflush(STDOUT_FILENO);
             pthread_mutex_unlock(&print_lock);
             solo_early_departure = true;
             break;
@@ -492,21 +492,21 @@ void load(Car* car){
         print_timestamp();
         printf("Car %d done waiting, departing with %d / %d\n",
                 car->car_id, car->onboard_count, car->capacity);
-        fflush(stdout);
+        fflush(STDOUT_FILENO);
         pthread_mutex_unlock(&print_lock);
     } else if (car->onboard_count == car->capacity){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d is full with %d passengers\n", car->car_id, 
             car->capacity);
-        fflush(stdout);
+        fflush(STDOUT_FILENO);
         pthread_mutex_unlock(&print_lock);
     } else {
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d boarded all %d assigned passengers, but is not full (capacity %d)\n",
             car->car_id, car->onboard_count, car->capacity);
-        fflush(stdout);
+        fflush(STDOUT_FILENO);
         pthread_mutex_unlock(&print_lock);
     }
     can_load_now = 0;
@@ -520,13 +520,13 @@ void run(Car* car){  //int car?
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d departed for its run\n", car->car_id);
-    fflush(stdout);
+    fflush(STDOUT_FILENO);
     pthread_mutex_unlock(&print_lock);
     sleep(ride_duration);
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d finished its run\n", car->car_id);
-    fflush(stdout);
+    fflush(STDOUT_FILENO);
     pthread_mutex_unlock(&print_lock);
 }
 //– Signals passengers to call unboard()
@@ -535,7 +535,7 @@ void unload(Car* car){
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d invoked unload()\n", car->car_id);
-    fflush(stdout);
+    fflush(STDOUT_FILENO);
     pthread_mutex_unlock(&print_lock);
 
     car->can_unload_now = true;
@@ -613,7 +613,7 @@ void* park_experience(void* arg){
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Passenger %d entered the park\n", p->pass_id);
-    fflush(stdout);
+    fflush(STDOUT_FILENO);
     pthread_mutex_unlock(&print_lock);
 
     while (simulation_running) {
@@ -622,13 +622,13 @@ void* park_experience(void* arg){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d is exploring the park...\n", p->pass_id);
-        fflush(stdout);
+        fflush(STDOUT_FILENO);
         pthread_mutex_unlock(&print_lock);
         sleep(explore_time);
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d finished exploring, heading to ticket booth\n", p->pass_id);
-        fflush(stdout);
+        fflush(STDOUT_FILENO);
         pthread_mutex_unlock(&print_lock);
         
         // record the moment we joined the ticket line:
@@ -639,7 +639,7 @@ void* park_experience(void* arg){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d waiting in ticket queue\n", p->pass_id);
-        fflush(stdout);
+        fflush(STDOUT_FILENO);
         pthread_mutex_unlock(&print_lock);
         pthread_mutex_lock(&ticket_booth_lock);
         //increments ride queue total, and blocks if line at max
@@ -659,7 +659,7 @@ void* park_experience(void* arg){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d acquired a ticket\n", p->pass_id);
-        fflush(stdout);
+        fflush(STDOUT_FILENO);
         pthread_mutex_unlock(&print_lock);
         usleep(1000000);
         pthread_mutex_unlock(&ticket_booth_lock);
@@ -673,7 +673,7 @@ void* park_experience(void* arg){
         pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id);
-        fflush(stdout); 
+        fflush(STDOUT_FILENO); 
         pthread_mutex_unlock(&print_lock);
         
         embark_coaster(p);
@@ -752,7 +752,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Closing the park.\n");
-    fflush(stdout);
+    fflush(STDOUT_FILENO);
     pthread_mutex_unlock(&print_lock);
     for (int i = 0; i < passengers; ++i) {
         free(passenger_objects[i]);  
@@ -865,7 +865,7 @@ int main(int argc, char *argv[]){
     // }
     // //child process is the monitor
     // if (pid == 0) {
-    //     close(stdout);
+    //     close(STDOUT_FILENO);
     //     monitor_main(mon_pipe[0]);
     //     close(mon_pipe[0]);
     //     _exit(0);
@@ -880,7 +880,7 @@ int main(int argc, char *argv[]){
 
     launch_park(passengers, cars, capacity, wait, ride, park_hours, max_coaster_line);
 
-    //close(stdout);
+    //close(STDOUT_FILENO);
     // Wait for timer thread to finish (it will exit once simulation_running == false):
     pthread_join(timer_tid, NULL);
 
