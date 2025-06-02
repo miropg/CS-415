@@ -765,7 +765,6 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 int main(int argc, char *argv[]){
     srand(time(NULL));
     beginning_time = time(NULL);
-    init_print_lock();
     int opt;
     int passengers = -1, cars = -1, capacity = -1, wait = -1, ride = -1;
     int park_hours = 40; //in sec
