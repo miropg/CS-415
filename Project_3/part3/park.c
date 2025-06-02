@@ -231,7 +231,7 @@ void* monitor_timer_thread(void* arg) {
 
         // 3f) Write all at once
         size_t total_len = p - block;
-        write(mon_pipe[1], block, total_len);
+        write(STDOUT_FILENO, block, total_len);
 
         // 4) Bump next_wake by exactly interval seconds for the next iteration
         next_wake.tv_sec += interval;
@@ -282,7 +282,7 @@ void* monitor_timer_thread(void* arg) {
                          avg_pass_per_ride,
                          capacity);
 
-        write(mon_pipe[1], final_block, m);
+        write(STDOUT_FILENO, final_block, m);
     }
 
     return NULL;
