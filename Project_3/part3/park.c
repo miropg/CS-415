@@ -122,7 +122,7 @@ void* monitor_timer_thread(void* arg) {
     // Increase thread priority so it isn't starved
     int interval = *((int*)arg);
     free(arg);
-
+    time_t sec_diff = 0;
     // Outer loop: keep taking snapshots until simulation_running == 0
     while (simulation_running) {
         // 1) Record the moment we begin waiting for the next 'interval' seconds
@@ -134,7 +134,7 @@ void* monitor_timer_thread(void* arg) {
             struct timespec now;
             clock_gettime(CLOCK_MONOTONIC, &now);
 
-            time_t  sec_diff  = now.tv_sec  - start.tv_sec;
+            sec_diff  = now.tv_sec  - start.tv_sec;
             long    nsec_diff = now.tv_nsec - start.tv_nsec;
             if (nsec_diff < 0) {
                 sec_diff  -= 1;
