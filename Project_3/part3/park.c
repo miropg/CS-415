@@ -237,6 +237,7 @@ void* monitor_timer_thread(void* arg) {
         next_wake.tv_sec += interval;
         // (leave next_wake.tv_nsec unchanged because interval is whole seconds)
     }
+    return NULL;
 }
 
 static void print_final_statistics(void) {
