@@ -17,7 +17,7 @@
 //ALL MONITOR GLOBAL VARIABLES
 static int mon_pipe[2];
 static pthread_mutex_t shared_mutex_storage = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t *shared_print_mutex = &shared_mutex_storage;
+pthread_mutex_t *&print_lock = &shared_mutex_storage;
 
 static time_t beginning_time;
 void* monitor_timer_thread(void* arg);
@@ -82,40 +82,40 @@ void beginning_stats_to_pipe(int passengers,
     // First line:
     snprintf(buf, sizeof(buf),
              "Simulation started with parameters:\n");
-    write(mon_pipe[1], buf, strlen(buf));
+    write(stdout, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Number of passenger threads: %d\n", passengers);
-    write(mon_pipe[1], buf, strlen(buf));
+    write(stdout, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Number of cars: %d\n", cars);
-    write(mon_pipe[1], buf, strlen(buf));
+    write(stdout, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Capacity per car: %d\n", capacity);
-    write(mon_pipe[1], buf, strlen(buf));
+    write(stdout, buf, strlen(buf));
 
     // The “Park exploration time” line was hard‐coded, so send that as well:
     snprintf(buf, sizeof(buf),
              "- Park exploration time: 1-10 seconds\n");
-    write(mon_pipe[1], buf, strlen(buf));
+    write(stdout, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Car waiting period: %d seconds\n", wait);
-    write(mon_pipe[1], buf, strlen(buf));
+    write(stdout, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Ride duration: %d seconds\n", ride);
-    write(mon_pipe[1], buf, strlen(buf));
+    write(stdout, buf, strlen(buf));
 
     snprintf(buf, sizeof(buf),
              "- Total simulation time: %d seconds\n", hours);
-    write(mon_pipe[1], buf, strlen(buf));
+    write(stdout, buf, strlen(buf));
 
     // A blank line to separate from later snapshots:
     snprintf(buf, sizeof(buf), "\n");
-    write(mon_pipe[1], buf, strlen(buf));
+    write(stdout, buf, strlen(buf));
 }
 
 void* monitor_timer_thread(void* arg) {
@@ -143,6 +143,7 @@ void* monitor_timer_thread(void* arg) {
             sched_yield();
             // No sleep here: pure busy‐wait
         }
+        interval += 5;
 
         // If the simulation stopped while we were waiting, exit entirely
         if (!simulation_running) break;
@@ -188,24 +189,7 @@ void* monitor_timer_thread(void* arg) {
         pthread_mutex_unlock(ticket_queue.lock);
 
         // Ride Queue
-        pthread_mutex_lock(coaster_queue.lock);
-        n = snprintf(p, rem, "Ride Queue: [");
-        p += n; rem -= n;
-        Passenger* cur_ride = coaster_queue.front;
-        bool first_ride = true;
-        while (cur_ride && rem > 32) {
-            if (!first_ride) {
-                n = snprintf(p, rem, ", ");
-                p += n; rem -= n;
-            }
-            n = snprintf(p, rem, "Passenger %d", cur_ride->pass_id);
-            p += n; rem -= n;
-            first_ride = false;
-            cur_ride = cur_ride->next;
-        }
-        n = snprintf(p, rem, "]\n");
-        p += n; rem -= n;
-        pthread_mutex_unlock(coaster_queue.lock);
+    
 
         // Car statuses
         pthread_mutex_lock(&ride_lock);
@@ -245,7 +229,7 @@ void* monitor_timer_thread(void* arg) {
 
         // 3c) Write the entire block in one atomic write()
         size_t total_len = p - block;
-        write(mon_pipe[1], block, total_len);
+        write(stdout, block, total_len);
 
         // Now go back into the outer loop and start a fresh “start” for the next interval
     }
@@ -300,10 +284,10 @@ void* monitor_timer_thread(void* arg) {
                         avg_pass_per_ride,
                         capacity);
 
-        write(mon_pipe[1], final_block, m);
+        write(stdout, final_block, m);
     }
 
-    close(mon_pipe[1]);
+    close(stdout);
     return NULL;
 }
 
@@ -342,11 +326,11 @@ void* timer_thread(void* arg) {
     struct TimerArgs* t = (struct TimerArgs*) arg;
     sleep(t->duration);
     simulation_running = 0;
-    pthread_mutex_lock(shared_print_mutex);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Simulation timer ended. Cleaning up.\n");
     fflush(stdout);
-    pthread_mutex_unlock(shared_print_mutex);
+    pthread_mutex_unlock(&print_lock);
     // Wake up any threads waiting on condition variables
     // like a bell for closing, making sure threads call pthread_exit
     pthread_cond_broadcast(&can_board);
@@ -382,11 +366,11 @@ void board(Passenger* p) {
             count_wait_ride    += 1;
             pthread_mutex_unlock(&stats_lock);
         }
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d boarded Car %d\n", p->pass_id, my_car->car_id);
         fflush(stdout);
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
         my_car->passenger_ids[my_car->onboard_count++] = p->pass_id;
         pthread_cond_signal(&passengers_waiting);
         // if (my_car->onboard_count == my_car->capacity) {
@@ -409,11 +393,11 @@ void unboard(Passenger* p) {
         pthread_mutex_lock(&stats_lock);
         total_passengers_ridden += 1;
         pthread_mutex_unlock(&stats_lock);
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d unboarded Car %d\n", p->pass_id, my_car->car_id);
         fflush(stdout);
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
         my_car->unboard_count++;
 
         int expected = (tot_passengers == 1) ? 1 : my_car->onboard_count;
@@ -459,11 +443,11 @@ void load(Car* car){
     int passenger_assigned = attempt_load_available_passenger(car);
     if (passenger_assigned) {
         //pthread_cond_broadcast(&can_board);
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d invoked load()\n", car->car_id);
         fflush(stdout);
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
     }
     // Special case: If there is only one total passenger and they've boarded, leave immediately
     // if (tot_passengers == 1 && car->onboard_count == 1) {
@@ -483,11 +467,11 @@ void load(Car* car){
         if (car->onboard_count == car_capacity) break;
         result = pthread_cond_timedwait(&passengers_waiting, &ride_lock, &deadline);
         if (tot_passengers == 1 && car->onboard_count == 1){
-            pthread_mutex_lock(shared_print_mutex);
+            pthread_mutex_lock(&print_lock);
             print_timestamp();
             printf("Only one passenger — Car %d departing immediately\n", car->car_id);
             fflush(stdout);
-            pthread_mutex_unlock(shared_print_mutex);
+            pthread_mutex_unlock(&print_lock);
             solo_early_departure = true;
             break;
         }
@@ -504,26 +488,26 @@ void load(Car* car){
         return;
     }
     if (result == ETIMEDOUT) {
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d done waiting, departing with %d / %d\n",
                 car->car_id, car->onboard_count, car->capacity);
         fflush(stdout);
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
     } else if (car->onboard_count == car->capacity){
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d is full with %d passengers\n", car->car_id, 
             car->capacity);
         fflush(stdout);
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
     } else {
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Car %d boarded all %d assigned passengers, but is not full (capacity %d)\n",
             car->car_id, car->onboard_count, car->capacity);
         fflush(stdout);
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
     }
     can_load_now = 0;
     pthread_mutex_unlock(&ride_lock);
@@ -533,26 +517,26 @@ void run(Car* car){  //int car?
 
     car->state = RUNNING;
 
-    pthread_mutex_lock(shared_print_mutex);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d departed for its run\n", car->car_id);
     fflush(stdout);
-    pthread_mutex_unlock(shared_print_mutex);
+    pthread_mutex_unlock(&print_lock);
     sleep(ride_duration);
-    pthread_mutex_lock(shared_print_mutex);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d finished its run\n", car->car_id);
     fflush(stdout);
-    pthread_mutex_unlock(shared_print_mutex);
+    pthread_mutex_unlock(&print_lock);
 }
 //– Signals passengers to call unboard()
 void unload(Car* car){
     pthread_mutex_lock(&ride_lock);
-    pthread_mutex_lock(shared_print_mutex);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Car %d invoked unload()\n", car->car_id);
     fflush(stdout);
-    pthread_mutex_unlock(shared_print_mutex);
+    pthread_mutex_unlock(&print_lock);
 
     car->can_unload_now = true;
     pthread_cond_broadcast(&car->can_unload); //changed to car specific value
@@ -573,19 +557,19 @@ void unload(Car* car){
     car->state = WAITING;
 
     pthread_mutex_unlock(&ride_lock);
-    //pthread_mutex_lock(shared_print_mutex);
+    //pthread_mutex_lock(&print_lock);
     //print_timestamp();
     //printf("Car %d completed unload and will rejoin the queue.\n", car->car_id);
-    //pthread_mutex_unlock(shared_print_mutex);
+    //pthread_mutex_unlock(&print_lock);
 }
 
 //roller coaster gets called by each car thread in launch_park
 void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
     enqueue(&car_queue, car);
-    // pthread_mutex_lock(shared_print_mutex);
+    // pthread_mutex_lock(&print_lock);
     // print_queue(&car_queue);  //debug
-    // pthread_mutex_unlock(shared_print_mutex);
+    // pthread_mutex_unlock(&print_lock);
     while (simulation_running) {
         pthread_mutex_lock(&car_selection_lock);
         bool can_load = !is_passenger_queue_empty(&coaster_queue) &&
@@ -626,37 +610,37 @@ int embark_coaster(Passenger* p){
 void* park_experience(void* arg){
     //need to pass as pointer for load to communicate to board
     Passenger* p = (Passenger*)arg;
-    pthread_mutex_lock(shared_print_mutex);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Passenger %d entered the park\n", p->pass_id);
     fflush(stdout);
-    pthread_mutex_unlock(shared_print_mutex);
+    pthread_mutex_unlock(&print_lock);
 
     while (simulation_running) {
         // Exploring the Park
         int explore_time = (rand() % 10) + 1; //2-5 seconds
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d is exploring the park...\n", p->pass_id);
         fflush(stdout);
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
         sleep(explore_time);
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d finished exploring, heading to ticket booth\n", p->pass_id);
         fflush(stdout);
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
         
         // record the moment we joined the ticket line:
         clock_gettime(CLOCK_MONOTONIC, &p->ticket_queue_enter);
         // Ticket booth
         enqueue_passenger(&ticket_queue, p);
     
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d waiting in ticket queue\n", p->pass_id);
         fflush(stdout);
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
         pthread_mutex_lock(&ticket_booth_lock);
         //increments ride queue total, and blocks if line at max
         sem_wait(&ride_queue_semaphore); 
@@ -672,11 +656,11 @@ void* park_experience(void* arg){
             count_wait_ticket    += 1;
             pthread_mutex_unlock(&stats_lock);
         }
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d acquired a ticket\n", p->pass_id);
         fflush(stdout);
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
         usleep(1000000);
         pthread_mutex_unlock(&ticket_booth_lock);
         dequeue_passenger(&ticket_queue);
@@ -686,11 +670,11 @@ void* park_experience(void* arg){
         enqueue_passenger(&coaster_queue, p);
         //pthread_cond_signal(&all_boarded); // wake cars waiting in load()
         pthread_cond_signal(&passengers_waiting);
-        pthread_mutex_lock(shared_print_mutex);
+        pthread_mutex_lock(&print_lock);
         print_timestamp();
         printf("Passenger %d joined the ride queue\n", p->pass_id);
         fflush(stdout); 
-        pthread_mutex_unlock(shared_print_mutex);
+        pthread_mutex_unlock(&print_lock);
         
         embark_coaster(p);
     }
@@ -765,11 +749,11 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 		pthread_join(car_thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
 
-    pthread_mutex_lock(shared_print_mutex);
+    pthread_mutex_lock(&print_lock);
     print_timestamp();
     printf("Closing the park.\n");
     fflush(stdout);
-    pthread_mutex_unlock(shared_print_mutex);
+    pthread_mutex_unlock(&print_lock);
     for (int i = 0; i < passengers; ++i) {
         free(passenger_objects[i]);  
     }
@@ -782,7 +766,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     }
     free(all_cars);
     //destroy locks
-    //pthread_mutex_destroy(shared_print_mutex);
+    pthread_mutex_destroy(&print_lock);
     pthread_mutex_destroy(&car_queue_lock);
     pthread_mutex_destroy(&ticket_booth_lock);
     pthread_mutex_destroy(&coaster_queue_lock);
@@ -847,46 +831,46 @@ int main(int argc, char *argv[]){
     }
     int max_coaster_line = 2 * (cars * capacity);
     // Create Pipe for Monitor
-    if (pipe(mon_pipe) < 0) {
-        perror("pipe");
-        exit(1);
-    }
-    shared_print_mutex = mmap(NULL,
-                              sizeof(pthread_mutex_t),
-                              PROT_READ | PROT_WRITE,
-                              MAP_ANONYMOUS | MAP_SHARED,
-                              -1,
-                              0);
-    if (shared_print_mutex == MAP_FAILED) {
-        perror("mmap");
-        exit(1);
-    }
+    // if (pipe(mon_pipe) < 0) {
+    //     perror("pipe");
+    //     exit(1);
+    // }
+    // &print_lock = mmap(NULL,
+    //                           sizeof(pthread_mutex_t),
+    //                           PROT_READ | PROT_WRITE,
+    //                           MAP_ANONYMOUS | MAP_SHARED,
+    //                           -1,
+    //                           0);
+    // if (&print_lock == MAP_FAILED) {
+    //     perror("mmap");
+    //     exit(1);
+    // }
 
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-    pthread_mutex_init(shared_print_mutex, &attr);
-    pthread_mutexattr_destroy(&attr);
+    // pthread_mutexattr_t attr;
+    // pthread_mutexattr_init(&attr);
+    // pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+    // pthread_mutex_init(&print_lock, &attr);
+    // pthread_mutexattr_destroy(&attr);
 
-    // 2) Create the pipe that the parent will write snapshots into:
-    if (pipe(mon_pipe) < 0) {
-        perror("pipe");
-        exit(1);
-    }
+    // // 2) Create the pipe that the parent will write snapshots into:
+    // if (pipe(mon_pipe) < 0) {
+    //     perror("pipe");
+    //     exit(1);
+    // }
 
-    pid_t pid = fork();
-    if (pid < 0) {
-        perror("fork");
-        exit(1);
-    }
-    //child process is the monitor
-    if (pid == 0) {
-        close(mon_pipe[1]);
-        monitor_main(mon_pipe[0]);
-        close(mon_pipe[0]);
-        _exit(0);
-    }
-    close(mon_pipe[0]);
+    // pid_t pid = fork();
+    // if (pid < 0) {
+    //     perror("fork");
+    //     exit(1);
+    // }
+    // //child process is the monitor
+    // if (pid == 0) {
+    //     close(stdout);
+    //     monitor_main(mon_pipe[0]);
+    //     close(mon_pipe[0]);
+    //     _exit(0);
+    // }
+    // close(mon_pipe[0]);
     printf("===== DUCK PARK SIMULATION =====\n");
     beginning_stats_to_pipe(passengers, cars, capacity, wait, ride, park_hours);
     pthread_t timer_tid;
@@ -896,7 +880,7 @@ int main(int argc, char *argv[]){
 
     launch_park(passengers, cars, capacity, wait, ride, park_hours, max_coaster_line);
 
-    close(mon_pipe[1]);
+    //close(stdout);
     // Wait for timer thread to finish (it will exit once simulation_running == false):
     pthread_join(timer_tid, NULL);
 
