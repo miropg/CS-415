@@ -231,8 +231,9 @@ void* monitor_timer_thread(void* arg) {
 
         // 3f) Write all at once
         size_t total_len = p - block;
+        pthread_mutex_lock(&print_lock);
         write(STDOUT_FILENO, block, total_len);
-
+        pthread_mutex_unlock(&print_lock);
         // 4) Bump next_wake by exactly interval seconds for the next iteration
         next_wake.tv_sec += interval;
         // (leave next_wake.tv_nsec unchanged because interval is whole seconds)
@@ -285,7 +286,9 @@ static void print_final_statistics(void) {
                      capacity);
 
     // Write directly to stdout (or to mon_pipe if you prefer)
+    pthread_mutex_lock(&print_lock);
     write(STDOUT_FILENO, final_block, m);
+    pthread_mutex_unlock(&print_lock);
 }
 void print_timestamp() {
     struct timespec current_time;
