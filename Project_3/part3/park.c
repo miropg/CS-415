@@ -9,6 +9,7 @@
 #include <semaphore.h>
 #include <sched.h>
 #include <sys/mman.h>
+#include <stdarg.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include "queues.h"
@@ -71,6 +72,8 @@ int num_cars;
 int car_capacity;
 int ride_wait;
 int ride_duration;
+
+void print_timestamp(void);
 
 static void print_barrier_printf(const char *fmt, ...)
 {
@@ -558,9 +561,7 @@ void unload(Car* car){
 void* roller_coaster(void* arg){
     Car* car = (Car*)arg;
     enqueue(&car_queue, car);
-    /
     // print_queue(&car_queue);  //debug
-    /
     while (simulation_running) {
         pthread_mutex_lock(&car_selection_lock);
         bool can_load = !is_passenger_queue_empty(&coaster_queue) &&
