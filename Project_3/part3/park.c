@@ -237,58 +237,55 @@ void* monitor_timer_thread(void* arg) {
         next_wake.tv_sec += interval;
         // (leave next_wake.tv_nsec unchanged because interval is whole seconds)
     }
-
-    // 5) If we exited because simulation_running == 0, print FINAL STATISTICS
-    {
-        pthread_mutex_lock(&stats_lock);
-        int served       = total_passengers_ridden;
-        int rides_done   = total_rides_completed;
-        double sum_ticket = sum_wait_ticket_queue;
-        int cnt_ticket    = count_wait_ticket;
-        double sum_ride   = sum_wait_ride_queue;
-        int cnt_ride      = count_wait_ride;
-        int capacity      = car_capacity;
-        pthread_mutex_unlock(&stats_lock);
-
-        struct timespec final_now;
-        clock_gettime(CLOCK_MONOTONIC, &final_now);
-        time_t elapsed_final = final_now.tv_sec - start_time.tv_sec;
-        int hh = elapsed_final / 3600;
-        int mm = (elapsed_final % 3600) / 60;
-        int ss = elapsed_final % 60;
-
-        double avg_ticket_wait   = (cnt_ticket > 0) ? (sum_ticket / cnt_ticket) : 0.0;
-        double avg_ride_wait     = (cnt_ride   > 0) ? (sum_ride   / cnt_ride)   : 0.0;
-        double avg_pass_per_ride = (rides_done > 0) ? ((double)served / rides_done) : 0.0;
-        double utilization_pct   = (capacity > 0 && rides_done > 0)
-                                  ? (avg_pass_per_ride / capacity) * 100.0
-                                  : 0.0;
-
-        char final_block[512];
-        int m = snprintf(final_block, sizeof(final_block),
-                         "FINAL STATISTICS:\n"
-                         "Total simulation time: %02d:%02d:%02d\n"
-                         "Total passengers served: %d\n"
-                         "Total rides completed: %d\n"
-                         "Average wait time in ticket queue: %.3f seconds\n"
-                         "Average wait time in ride queue: %.3f seconds\n"
-                         "Average car utilization: %.1f%% (%.1f/%d passengers per ride)\n\n",
-                         hh, mm, ss,
-                         served,
-                         rides_done,
-                         avg_ticket_wait,
-                         avg_ride_wait,
-                         utilization_pct,
-                         avg_pass_per_ride,
-                         capacity);
-
-        write(STDOUT_FILENO, final_block, m);
-    }
-
-    return NULL;
 }
 
+static void print_final_statistics(void) {
+    pthread_mutex_lock(&stats_lock);
+    int served       = total_passengers_ridden;
+    int rides_done   = total_rides_completed;
+    double sum_ticket = sum_wait_ticket_queue;
+    int cnt_ticket    = count_wait_ticket;
+    double sum_ride   = sum_wait_ride_queue;
+    int cnt_ride      = count_wait_ride;
+    int capacity      = car_capacity;
+    pthread_mutex_unlock(&stats_lock);
 
+    // Figure out wall‐clock elapsed time
+    struct timespec final_now;
+    clock_gettime(CLOCK_MONOTONIC, &final_now);
+    time_t elapsed_final = final_now.tv_sec - start_time.tv_sec;
+    int hh = elapsed_final / 3600;
+    int mm = (elapsed_final % 3600) / 60;
+    int ss = elapsed_final % 60;
+
+    double avg_ticket_wait   = (cnt_ticket > 0) ? (sum_ticket / cnt_ticket) : 0.0;
+    double avg_ride_wait     = (cnt_ride   > 0) ? (sum_ride   / cnt_ride)   : 0.0;
+    double avg_pass_per_ride = (rides_done > 0) ? ((double)served / rides_done) : 0.0;
+    double utilization_pct   = (capacity > 0 && rides_done > 0)
+                              ? (avg_pass_per_ride / capacity) * 100.0
+                              : 0.0;
+
+    char final_block[512];
+    int m = snprintf(final_block, sizeof(final_block),
+                     "FINAL STATISTICS:\n"
+                     "Total simulation time: %02d:%02d:%02d\n"
+                     "Total passengers served: %d\n"
+                     "Total rides completed: %d\n"
+                     "Average wait time in ticket queue: %.3f seconds\n"
+                     "Average wait time in ride queue: %.3f seconds\n"
+                     "Average car utilization: %.1f%% (%.1f/%d passengers per ride)\n\n",
+                     hh, mm, ss,
+                     served,
+                     rides_done,
+                     avg_ticket_wait,
+                     avg_ride_wait,
+                     utilization_pct,
+                     avg_pass_per_ride,
+                     capacity);
+
+    // Write directly to stdout (or to mon_pipe if you prefer)
+    write(STDOUT_FILENO, final_block, m);
+}
 void print_timestamp() {
     struct timespec current_time;
     clock_gettime(CLOCK_MONOTONIC, &current_time);
@@ -328,6 +325,7 @@ void* timer_thread(void* arg) {
     printf("Simulation timer ended. Cleaning up.\n");
     fflush(stdout);
     pthread_mutex_unlock(&print_lock);
+    print_final_statistics();
     // Wake up any threads waiting on condition variables
     // like a bell for closing, making sure threads call pthread_exit
     pthread_cond_broadcast(&can_board);
@@ -745,12 +743,6 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     for (int j = 0; j < num_cars; ++j){
 		pthread_join(car_thread_ids[j], NULL); // wait on our threads to rejoin main thread
 	}
-
-    pthread_mutex_lock(&print_lock);
-    print_timestamp();
-    printf("Closing the park.\n");
-    fflush(stdout);
-    pthread_mutex_unlock(&print_lock);
     for (int i = 0; i < passengers; ++i) {
         free(passenger_objects[i]);  
     }
