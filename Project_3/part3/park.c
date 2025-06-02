@@ -12,7 +12,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include "queues.h"
-#include "monitor.h"
+// #include "monitor.h"
 
 //ALL MONITOR GLOBAL VARIABLES
 // static int mon_pipe[2];
@@ -122,11 +122,12 @@ void* monitor_timer_thread(void* arg) {
     // Increase thread priority so it isn't starved
     int interval = *((int*)arg);
     free(arg);
-    time_t sec_diff = 0;
+  
     // Outer loop: keep taking snapshots until simulation_running == 0
     struct timespec start;
     clock_gettime(CLOCK_MONOTONIC, &start);
     while (simulation_running) {
+        time_t sec_diff = 0;
         while (sec_diff < interval) {
             struct timespec now;
             clock_gettime(CLOCK_MONOTONIC, &now);
@@ -134,16 +135,16 @@ void* monitor_timer_thread(void* arg) {
             sec_diff  = now.tv_sec  - start.tv_sec;
             long    nsec_diff = now.tv_nsec - start.tv_nsec;
             if (nsec_diff < 0) {
+                // Borrow one second if now.tv_nsec < start.tv_nsec
                 sec_diff  -= 1;
                 nsec_diff += 1000000000L;
             }
             sched_yield();
         }
-        clock_gettime(CLOCK_MONOTONIC, &start);
 
         // If the simulation stopped while we were waiting, exit entirely
         if (!simulation_running) break;
-
+        clock_gettime(CLOCK_MONOTONIC, &start);
         // 3) Build & emit exactly one system‐state snapshot now
 
         // 3a) Compute “park elapsed time” for header (HH:MM:SS)
