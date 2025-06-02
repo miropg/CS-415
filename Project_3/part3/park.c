@@ -143,7 +143,7 @@ void* monitor_timer_thread(void* arg) {
             sched_yield();
             // No sleep here: pure busy‐wait
         }
-        interval += 5;
+        clock_gettime(CLOCK_MONOTONIC, &start);
 
         // If the simulation stopped while we were waiting, exit entirely
         if (!simulation_running) break;
