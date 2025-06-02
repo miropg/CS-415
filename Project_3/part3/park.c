@@ -44,7 +44,8 @@ pthread_mutex_t car_selection_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t ticket_booth_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t coaster_queue_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t ride_lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t print_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t print_lock;
+
 pthread_mutex_t stats_lock = PTHREAD_MUTEX_INITIALIZER;
 //pthread_mutex_t load_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -68,7 +69,19 @@ int car_capacity;
 int ride_wait;
 int ride_duration;
 
-void monitor_main(int pipe_fd);
+void init_print_lock(void) {
+    pthread_mutexattr_t mattr;
+    pthread_mutexattr_init(&mattr);
+
+    // Tell the mutex to use priority-inheritance
+    // (so that if a high-priority thread blocks on it,
+    // the current owner is boosted to that high priority
+    // until it releases the mutex).
+    pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT);
+
+    pthread_mutex_init(&print_lock, &mattr);
+    pthread_mutexattr_destroy(&mattr);
+}
 
 //ALL MONITOR FUNCTIONS
 void beginning_stats(int passengers,
@@ -692,6 +705,12 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     int *interval_arg = malloc(sizeof(int));
     *interval_arg = 5;
     pthread_create(&monitor_tid, NULL, monitor_timer_thread, interval_arg);
+    struct sched_param mon_param;
+    mon_param.sched_priority = 80;   // any value from 1..99
+    if (pthread_setschedparam(monitor_tid, SCHED_FIFO, &mon_param) != 0) {
+        perror("pthread_setschedparam");
+        // (you probably need root/CAP_SYS_NICE to succeed on Linux)
+    }
 
     //assigned_car = malloc(sizeof(Car*) * tot_passengers);
     // Set global variables
@@ -789,7 +808,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
 int main(int argc, char *argv[]){
     srand(time(NULL));
     beginning_time = time(NULL);
-
+    init_print_lock();
     int opt;
     int passengers = -1, cars = -1, capacity = -1, wait = -1, ride = -1;
     int park_hours = 40; //in sec
