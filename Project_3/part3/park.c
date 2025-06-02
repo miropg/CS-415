@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <semaphore.h>
+#include <sched.h>
 #include "queues.h"
 #include "monitor.h"
 
@@ -110,6 +111,8 @@ void beginning_stats_to_pipe(int passengers,
 }
 
 void* monitor_timer_thread(void* arg) {
+    struct sched_param p = { .sched_priority = sched_get_priority_max(SCHED_FIFO) };
+    pthread_setschedparam(pthread_self(), SCHED_FIFO, &p);
     int interval = *((int*)arg);
     free(arg);
 
