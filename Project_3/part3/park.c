@@ -118,18 +118,9 @@ void beginning_stats(int passengers,
     write(STDOUT_FILENO, buf, strlen(buf));
 }
 
-void* monitor_thread(void* arg) {
-    (void)arg;
-    while (simulation_running) {
-        print_monitor_status();
-        sleep(5);  // <― exact 5-second interval
-    }
-    return NULL;
-}
-
 void print_monitor_status(void) {
     struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now_ts);
+    clock_gettime(CLOCK_MONOTONIC, &now);
     time_t elapsed_sec = now.tv_sec - start_time.tv_sec;
     int hh = elapsed_sec / 3600;
     int mm = (elapsed_sec % 3600) / 60;
@@ -226,6 +217,15 @@ void print_monitor_status(void) {
     pthread_mutex_lock(&shared_print_mutex);
     write(STDOUT_FILENO, block, total_len);
     pthread_mutex_unlock(&shared_print_mutex);
+}
+
+void* monitor_thread(void* arg) {
+    (void)arg;
+    while (simulation_running) {
+        print_monitor_status();
+        sleep(5);  // <― exact 5-second interval
+    }
+    return NULL;
 }
 
 static void print_final_statistics(void) {
