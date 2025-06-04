@@ -223,6 +223,7 @@ void print_monitor_status(void) {
 
 void* monitor_thread(void* arg) {
     (void)arg;
+    sleep(5);
     while (simulation_running) {
         print_monitor_status();
         sleep(5);  // <― exact 5-second interval
