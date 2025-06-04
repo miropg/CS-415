@@ -18,7 +18,7 @@ void monitor_main(int pipe_fd) {
     
     char bigbuf[4096];
     while (fgets(bigbuf, sizeof(bigbuf), pipe_stream)) {
-        pause();
+        //pause();
         //calic
         pthread_mutex_lock(shared_print_mutex);
         fputs(bigbuf, stdout);
