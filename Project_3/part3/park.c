@@ -44,7 +44,7 @@ pthread_mutex_t car_selection_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t ticket_booth_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t coaster_queue_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t ride_lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t shared_print_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t *shared_print_mutex;
 pthread_mutex_t stats_lock = PTHREAD_MUTEX_INITIALIZER;
 //pthread_mutex_t load_lock = PTHREAD_MUTEX_INITIALIZER;
 
