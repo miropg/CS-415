@@ -137,7 +137,7 @@ void print_monitor_status(void) {
     p += n; rem -= n;
 
     // 3b) Ticket Queue
-    pthread_mutex_lock(ticket_queue.lock);
+    //pthread_mutex_lock(ticket_queue.lock);
     n = snprintf(p, rem, "Ticket Queue: [");
     p += n; rem -= n;
 
@@ -155,10 +155,10 @@ void print_monitor_status(void) {
     }
     n = snprintf(p, rem, "]\n");
     p += n; rem -= n;
-    pthread_mutex_unlock(ticket_queue.lock);
+    //pthread_mutex_unlock(ticket_queue.lock);
 
     // 3c) Ride Queue
-    pthread_mutex_lock(coaster_queue.lock);
+    //pthread_mutex_lock(coaster_queue.lock);
     n = snprintf(p, rem, "Ride Queue: [");
     p += n; rem -= n;
 
@@ -176,10 +176,10 @@ void print_monitor_status(void) {
     }
     n = snprintf(p, rem, "]\n");
     p += n; rem -= n;
-    pthread_mutex_unlock(coaster_queue.lock);
+    //pthread_mutex_unlock(coaster_queue.lock);
 
     // 3d) Car statuses
-    pthread_mutex_lock(&ride_lock);
+    //pthread_mutex_lock(&ride_lock);
     for (int i = 0; i < num_cars && rem > 64; i++) {
         Car* car = &all_cars[i];
         const char* state_str =
@@ -195,15 +195,15 @@ void print_monitor_status(void) {
                          car->capacity);
             p += n; rem -= n;
     }
-    pthread_mutex_unlock(&ride_lock);
+    //pthread_mutex_unlock(&ride_lock);
 
     // 3e) “Passengers in park” line:
-    pthread_mutex_lock(&ride_lock);
+    //pthread_mutex_lock(&ride_lock);
     int on_ride = 0;
     for (int i = 0; i < num_cars; i++) {
         on_ride += all_cars[i].onboard_count;
     }
-    pthread_mutex_unlock(&ride_lock);
+    //pthread_mutex_unlock(&ride_lock);
     int in_queues = ticket_queue.size + coaster_queue.size;
     int exploring = tot_passengers - (in_queues + on_ride);
     if (exploring < 0) exploring = 0;
