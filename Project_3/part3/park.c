@@ -119,6 +119,7 @@ void beginning_stats(int passengers,
 }
 
 void print_monitor_status(void) {
+    fflush(stdout);
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     time_t elapsed_sec = now.tv_sec - start_time.tv_sec;
