@@ -218,6 +218,7 @@ void print_monitor_status(void) {
     pthread_mutex_lock(&shared_print_mutex);
     write(STDOUT_FILENO, block, total_len);
     pthread_mutex_unlock(&shared_print_mutex);
+    fflush(stdout);
 }
 
 void* monitor_thread(void* arg) {
