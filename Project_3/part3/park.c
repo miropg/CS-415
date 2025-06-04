@@ -706,7 +706,7 @@ void launch_park(int passengers, int cars, int capacity, int wait, int ride, int
     init_passenger_queue(&ticket_queue, &ticket_booth_lock);
     init_passenger_queue(&coaster_queue, &coaster_queue_lock);
 
-    //beginning_stats(tot_passengers, num_cars, car_capacity, ride_wait, ride_duration, park_hours);
+    beginning_stats(tot_passengers, num_cars, car_capacity, ride_wait, ride_duration, park_hours);
 
     pthread_t* car_thread_ids = (pthread_t *)malloc(sizeof(pthread_t) * num_cars); //threads for cars too
     pthread_t* thread_ids = (pthread_t *)malloc(sizeof(pthread_t) * tot_passengers);//array of threads
@@ -849,12 +849,6 @@ int main(int argc, char *argv[]){
     pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
     pthread_mutex_init(shared_print_mutex, &attr);
     pthread_mutexattr_destroy(&attr);
-
-    // 2) Create the pipe that the parent will write snapshots into:
-    if (pipe(mon_pipe) < 0) {
-        perror("pipe");
-        exit(1);
-    }
 
     pid_t pid = fork();
     if (pid < 0) {
