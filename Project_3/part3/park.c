@@ -786,6 +786,7 @@ int main(int argc, char *argv[]){
 
     // Handle long flag manually
     for (int i = 1; i < argc; i++) {
+        // use withh: ./park --help
         if (strcmp(argv[i], "--help") == 0) {
             print_help();
             exit(0);
